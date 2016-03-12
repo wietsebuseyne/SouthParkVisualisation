@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+
+<head>
+	<style>
+
+	
+  .tooltip {
+    position: absolute;
+    width: 200px;
+    height: 28px;
+    pointer-events: none;
+  }
+
+	</style>
+</head>
+
+<body>
+	
+<script src="http://d3js.org/d3.v3.js"></script>
+
+<script>
+
+
+var margin = {top: 20, right: 20, bottom: 70, left: 40},
+    width = 600 - margin.left - margin.right,
+    height = 300 - margin.top - margin.bottom;
+    barHeight = 50
+
+
+//kleurtjes voor personages 
+var colormap =  { "Cartman":"C11B17" ,  "Kenny": "ff6633" ,  "Kyle" : "00cc33" ,  "Stan": "0041C2"  ,"Other": "E5E4E2"};
+
+
+var x = d3.scale.ordinal().rangeRoundBands([0, width], .05);
+
+var y = d3.scale.linear().range([height, 0]);
+
+
+//MAGIC NUMBER  moet anders aub
+var totalWords = 1097
+
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+    .append("g")
+    .attr("transform", 
+          "translate(" + margin.left + "," + margin.top + ")");
+
+
+//data: episode, character, value
+d3.csv("episode_sample.csv", function(error, data) {
+    data.forEach(function(d) {
+        d.value = +d.value;
+    });
+	
+
+//hooverding
+var tooltip = d3.select("body").append("div")
+    .attr("class", "tooltip")
+    .style("opacity", 0);
+
+//schaal breedte voor balkje
+function scaleBarWidth(x) {
+  if(x<0) { x = -x}
+  return x*width/totalWords;
+}
+
+function scaleBarHeight(x){
+  if(x<0) {return 2*barHeight}
+    else {return barHeight}
+}
+
+//draw bars, with scaled width according to value
+var cumul = 50;
+
+svg.selectAll("bar")
+      .data(data)
+      .enter().append("rect")
+      .style("fill", function(d) {return colormap[d.character];}) //juiste kleurtje voor personage
+      .attr("x", function(d) { temp = cumul; cumul = cumul + scaleBarWidth(d.value); return temp; })  //xpositie van volgende is xpositie van vorige plus de breedte van vorige
+      .attr("y", 50)  //xpositie van volgende is xpositie van vorige plus de breedte van vorige
+      .attr("width", function(d){ return scaleBarWidth(d.value);})
+      .attr("height", function(d) { return  scaleBarHeight(d.value); })//factor twee wanneer scheldwoord
+
+      .on("mouseover", function(d) { //hooverdinks 
+          tooltip.transition()
+               .duration(200)
+               .style("opacity", .9);
+          tooltip.html(d.character + ": " + d.value)
+               .style("left", (d3.event.pageX + 5) + "px")
+               .style("top", (d3.event.pageY - 28) + "px");
+      })
+      .on("mouseout", function(d) {
+          tooltip.transition()
+               .duration(500)
+               .style("opacity", 0);
+      });
+
+});
+
+</script>
+
+</body>
