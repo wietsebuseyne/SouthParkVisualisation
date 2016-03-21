@@ -5,8 +5,8 @@
     <title>South Park Text Analysis</title>
     <style>
       rect.bordered {
-        stroke: #E6E6E6;
-        stroke-width:2px;
+        stroke: #555;
+        stroke-width:1px;
       }
 
       text.mono {
@@ -29,31 +29,19 @@
       }
 
 	  .tooltip {
-		    background: #eee;
+		background: #eee;
         box-shadow: 0 0 5px #999999;
         color: #333;
         display: none;
         font-size: 12px;
+        left: 130px;
+        padding: 10px;
         position: absolute;
         text-align: center;
-        z-index: 10;
-    }
-
-    .tooltip.small {
-        left: 130px;
-        padding: 10px;
         top: 95px;
         width: 80px;
-    }
-
-    .tooltip.big {
-        left: 130px;
-        padding: 10px;
-        top: 95px;
-        width: 300px;
-    }
-
-
+        z-index: 10;
+      }
     </style>
     <script src="d3.v3.min.js"></script>
   </head>
@@ -99,11 +87,7 @@
           legendElementWidth = gridSize*3,
           buckets = 9,
           /*colors = ["#ffffd9","#edf8b1","#c7e9b4","#7fcdbb","#41b6c4","#1d91c0","#225ea8","#253494","#081d58", "#ff8080", "#ff1a1a", "#660000", "#330000"], // alternatively colorbrewer.YlGnBu[9];*/
-          colors = /*['#ffffe0','#ffedbf','#ffdaa3','#ffc88d','#ffb27c','#ff9c70','#fb8768','#f47461','#eb5f5b','#df4c54','#d3394a','#c3273e','#b3152f','#9f051c','#8b0000'],*/["#ffffe5","#fff7bc","#fee391","#fec44f","#fe9929","#ec7014","#cc4c02","#993404","#662506"],
-          datasets = [
-            {dataset:"all_words.tsv", scale:[0, 1, 2, 5, 10, 20, 30, 40, 50, 100]},
-            {dataset:"profanities.tsv", scale:[0, 5, 10, 15, 20, 30, 40, 80, 100, 1000]}
-          ];
+          colors = /*['#ffffe0','#ffedbf','#ffdaa3','#ffc88d','#ffb27c','#ff9c70','#fb8768','#f47461','#eb5f5b','#df4c54','#d3394a','#c3273e','#b3152f','#9f051c','#8b0000'],*/["#ffffe5","#fff7bc","#fee391","#fec44f","#fe9929","#ec7014","#cc4c02","#993404","#662506"];
 
       var svg = d3.select("#chart").append("svg")
           .attr("width", width + margin.left + margin.right)
@@ -129,61 +113,42 @@
             .on("click", function(c,i) {
               //TODO toggle selection of character and redraw
             });
-
-    var episodeTooltip = d3.select("#chart")
-          .append("div")
-          .attr("class", "tooltip big");
-    episodeTooltip.append('div')
-      .attr('class', 'title');
-    episodeTooltip.append('div')
-      .attr('class', 'airdate');
-    episodeTooltip.append('div')
-      .attr('class', 'description');
     
-    var scalePoints = datasets[0].scale;
+    var scalePoints = [0, 5, 10, 15, 20, 30, 40, 80, 100, 1000];
 
 		// TOOLTIP
 		var tooltip = d3.select('#chart')
           .append('div')
-          .attr('class', 'tooltip small');
+          .attr('class', 'tooltip');
+
         tooltip.append('div')
           .attr('class', 'character');
+
         tooltip.append('div')
           .attr('class', 'episode');
 
-    var episodeInfo;
+        tooltip.append('div')
+          .attr('class', 'count');
 
-    d3.tsv("episodes.tsv", 
-      function (d) {
-        return {
-          episode: +d.episode,
-          title: d.title,
-          airdate: d.airdate,
-          description: d.description
-        };
-      }, function(error, data) {
-        episodeInfo = data;
-      }
-    );
-
-    var parseFunction = function(d) {
-          if(+d.character > 0)
+      var heatmapChart = function(tsvFile) {
+        d3.tsv(tsvFile,
+        function(d) {
           return {
             character: +d.character,
             episode: +d.episode,
-            value: +d.value
+            words: +d.words,
+            profanities: +d.profanities
           };
-          else
-            return null;
-        };
-
-      var heatmapChart = function(tsvFile) {
-        d3.tsv(tsvFile, parseFunction, heatmapDrawer);
+        }, heatmapDrawer);
       };
       var heatmapDrawer = function(error, data) {
-        newData = data.slice(startEpisode, (startEpisode+shownEpisodes)*characters.length);
-          var episodeLabels = svg.selectAll(".episodeLabel")
-            .data(episodes.slice(startEpisode, startEpisode+shownEpisodes));
+          labelData = episodes.slice(startEpisode, startEpisode+50);
+          var episodeLabels = svg.selectAll(".timeLabel")
+            .data(labelData);
+
+          var marginScale = d3.scale.linear()
+              .domain([0, 40])
+              .range([gridSize/3, 0]);
 
           episodeLabels
             .enter().append("text")
@@ -191,48 +156,45 @@
               .attr("y", 0)
               .style("text-anchor", "middle")
               .attr("transform", "translate(" + gridSize / 2 + ", -6)")
-              .attr("class", function(d, i) { return (((i >= 0 && i < 13) || (i>=31 && i < 41)) ? "episodeLabel mono axis axis-worktime" : "episodeLabel mono axis"); })
+              .attr("class", function(d, i) { return (((i >= 0 && i < 13) || (i>=31 && i < 41)) ? "timeLabel mono axis axis-worktime" : "timeLabel mono axis"); });
+
+          episodeLabels.transition().duration(500)
               .text(function(d) { return d; });
 
-          //Episode Tooltips
-          episodeLabels.on('mouseover', function(d, i) {
-            episodeTooltip.select('.title').html(mapEpisodeToNotation(i+startEpisode+1) + ": " + episodeInfo[i+startEpisode].title);
-            episodeTooltip.select('.airdate').html("<b>Airdate: </b>" + episodeInfo[i+startEpisode].airdate);
-            episodeTooltip.select('.description').html(episodeInfo[i+startEpisode].description);
-            episodeTooltip.style('display', 'block');
-          });
-
-          episodeLabels.on('mouseout', function() {
-            episodeTooltip.style('display', 'none');
-          });
-
-          episodeLabels.on('mousemove', function(d) {
-            episodeTooltip.style('top', (d3.event.layerY + 10) + 'px')
-              .style('left', (d3.event.layerX + 10) + 'px');
-          });
+          //TODO one colorscale for whole heatmap
+          /*var colorScale = d3.scale.linear()
+              .domain([0, buckets - 1, d3.max(data, function (d) { return d.value; })])
+              .range(['#ffffe0','#8b0000']);*/
 
           var colorScale = d3.scale.quantile()
               .domain(scalePoints)
               .range(colors);
 
           var cards = svg.selectAll(".episode")
-              .data(newData);
+              .data(data, function(d) {return d.character+':'+d.episode;});
+
+          cards.append("title");
 
           cards.enter().append("rect")
-              .attr("x", function(d) { return (d.episode - 1) * gridSize; })
-              .attr("y", function(d) { return (d.character - 1) * gridSize; })
+              .attr("x", function(d) { return (d.episode - 1) * gridSize + marginScale(d.words); })
+              .attr("y", function(d) { return (d.character - 1) * gridSize + marginScale(d.words); })
               .attr("class", "episode bordered")
-              .attr("width", gridSize)
-              .attr("height", gridSize)
+              .attr("width", function(d) { return gridSize - marginScale(d.words)*2; })
+              .attr("height", function(d) { return gridSize - marginScale(d.words)*2; })
               .style("fill", colors[0]);
 
-          cards.transition().duration(1000)
-              .style("fill", function(d) { return colorScale(d.value); });
+          cards.transition().duration(0)
+              .attr("x", function(d) { return (d.episode - 1) * gridSize + marginScale(d.words); })
+              .attr("y", function(d) { return (d.character - 1) * gridSize + marginScale(d.words); })
+              .attr("class", "episode bordered")
+              .attr("width", function(d) { return gridSize - marginScale(d.words)*2; })
+              .attr("height", function(d) { return gridSize - marginScale(d.words)*2; })
+              .style("fill", function(d) { return colorScale(d.profanities); });
 
 		      // TOOLTIP
 		      cards.on('mouseover', function(d) {
             tooltip.select('.character').html(characters[d.character-1]);
-            tooltip.select('.episode').html(mapEpisodeToNotation(d.episode+startEpisode) + ": <b>" + d.value + "</b>");
+            tooltip.select('.episode').html(mapEpisodeToNotation(d.episode+startEpisode) + "</br>Words: <b>" + d.words + "%</b></br>Profanities: <b>" + d.profanities + "‰</b>");
             tooltip.style('display', 'block');
           });
 
@@ -245,60 +207,43 @@
               .style('left', (d3.event.layerX + 10) + 'px');
           });
 
-          svg.selectAll(".legendText").remove();
-          svg.selectAll(".legendColor").remove();
+          cards.exit().remove();
 
-          var legendText = svg.selectAll(".legendText")
+          var legend = svg.selectAll(".legend")
               .data([0].concat(colorScale.quantiles()), function(d) { return d; });
 
-          legendText.enter().append("text")
-            .attr("class", "legendText mono")
-            .attr("x", function(d, i) { return legendElementWidth * i; })
-            .attr("y", height + gridSize);
-          legendText.transition().duration(1000)
-            .text(function(d) { return "≥ " + Math.round(d); });
+          legend.enter().append("g")
+              .attr("class", "legend");
 
-          var legendColor = svg.selectAll(".legendColor")
-              .data([0].concat(colorScale.quantiles()), function(d) { return d; });
-
-          legendColor.enter().append("rect")
-            .attr("class", "legendColor")
+          legend.append("rect")
             .attr("x", function(d, i) { return legendElementWidth * i; })
             .attr("y", height)
             .attr("width", legendElementWidth)
             .attr("height", gridSize / 2)
             .style("fill", function(d, i) { return colors[i]; });
+
+          legend.append("text")
+            .attr("class", "mono")
+            .text(function(d) { return "≥ " + Math.round(d); })
+            .attr("x", function(d, i) { return legendElementWidth * i; })
+            .attr("y", height + gridSize);
+
+          legend.exit().remove();
+
         };
 
-      var updateHeatMap = function(data) {
-          var colorScale = d3.scale.quantile()
-              .domain(scalePoints)
-              .range(colors);
-
-          var cards = svg.selectAll(".episode")
-              .data(data);
-          /*cards.attr("class", "episode bordered update");
-          cards.enter().append("rect")
-              .attr("x", function(d) { return (d.episode - 1) * gridSize; })
-              .attr("y", function(d) { return (d.character - 1) * gridSize; })
-              .attr("class", "episode bordered")
-              .attr("width", gridSize)
-              .attr("height", gridSize)
-              .style("fill", colors[0]);*/
-          cards.style("fill", function(d) { return colorScale(d.value); });
-          cards.exit().remove();
-
-          var episodeLabels = svg.selectAll(".episodeLabel")
-            .data(episodes.slice(startEpisode, startEpisode+50));
-
-          episodeLabels.transition().duration(0)
-              .text(function(d) { return d; });
-      };
-
-      heatmapChart(datasets[0].dataset);
+      heatmapChart("combination.tsv");
 
       var nav = function(tsvFile) {
-        d3.tsv(tsvFile, parseFunction,
+        d3.tsv(tsvFile,
+        function(d) {
+          return {
+            character: +d.character,
+            episode: +d.episode,
+            words: +d.words,
+            profanities: +d.profanities
+          };
+        },
         function(error, data) {
           var colorScale = d3.scale.quantile()
               .domain(scalePoints)
@@ -312,18 +257,20 @@
               .attr("y", function(d) { return (d.character - 1) * navTileSize; })
               .attr("width", navTileSize)
               .attr("height", navTileSize)
-              .style("fill", colors[0])
-              .attr("class", function(d) {
-                  if(d.episode > startEpisode && d.episode <= startEpisode + shownEpisodes)
-                    return "inScope";
-                });;
+              .style("fill", colors[0]);
 
           cards.on('mouseover', function(d, i) {
                 //Minimally show 50
                 var toSplice = Math.max(0, Math.min(
                   i - (i % characters.length) - (shownEpisodes/2 * characters.length),
                   data.length - shownEpisodes * characters.length));
-                startEpisode = toSplice / characters.length;
+                startEpisode = toSplice / 11;
+
+                //Show selection in navigation bar
+                cards.transition().duration(0).attr("class", function(d) {
+                  if(d.episode > startEpisode && d.episode <= startEpisode + shownEpisodes)
+                    return "inScope";
+                });
 
                 //Update heatmap with selected data
                 var newData = [];
@@ -334,19 +281,12 @@
                     newData[index] = {
                       "episode": ep+1,
                       "character": data[index+toSplice].character,
-                      "value": data[index+toSplice].value
+                      "words": data[index+toSplice].words,
+                      "profanities": data[index+toSplice].profanities
                     };
                   }
                 }
-                updateHeatMap(newData);
-                //heatmapDrawer(null, newData);
-
-                //Show selection in navigation bar
-                cards.transition().duration(0).attr("class", function(d) {
-                  if(d.episode > startEpisode && d.episode <= startEpisode + shownEpisodes)
-                    return "inScope";
-                });
-
+                heatmapDrawer(null, newData);
                 /*var change = svg.selectAll(".timeLabel")
                   .transition();
       change
@@ -372,32 +312,15 @@
                       .style("fill", function(d) { return colorScale(d.value); });*/
               });
 
-          cards.transition().duration(1000)
-              .style("fill", function(d) { return colorScale(d.value); });
+          cards.transition().duration(0)
+              .style("fill", function(d) { return colorScale(d.profanities); });
 
           cards.exit().remove();
 
         });
       };
 
-      nav(datasets[0].dataset);
-
-      //gridSize = 5;
-
-      var datasetpicker = d3.select("#dataset-picker").selectAll(".dataset-button")
-        .data(datasets);
-
-      datasetpicker.enter()
-        .append("input")
-        .attr("value", function(d){ return d.dataset; })
-        .attr("type", "button")
-        .attr("class", "dataset-button")
-        .on("click", function(d) {
-          startEpisode = 0;
-          scalePoints = d.scale;
-          heatmapChart(d.dataset);
-          nav(d.dataset);
-        });
+      nav("combination.tsv");
 
 	function mapEpisodeToNotation(episode)
 	{
