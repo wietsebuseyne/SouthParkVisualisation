@@ -1,26 +1,33 @@
+<!--
+Ideas:
+  - teken rechthoek rond episode nummer in kleur van #profanities
+  - teken rechthoek rond seizoen in kleur van #profanities
+-->
+
 <!DOCTYPE html>
 <meta charset="utf-8">
 <html>
   <head>
     <title>South Park Text Analysis</title>
     <style>
+      rect.navigationRectangle {
+        stroke: #000;
+        stroke-width: 2px;
+      }
+
       rect.bordered {
-        stroke: #E6E6E6;
-        stroke-width:2px;
+        stroke: #555;
+        stroke-width:1px;
       }
 
       text.mono {
         font-size: 9pt;
         font-family: Consolas, courier;
-        fill: #aaa;
-      }
-
-      text.axis-workweek {
         fill: #000;
       }
 
-      text.axis-worktime {
-        fill: #000;
+      text.axis-odd {
+        fill: #888;
       }
 
       .inScope {
@@ -28,7 +35,7 @@
         filter: grayscale(100%);
       }
 
-	  .tooltip {
+	  .hoverInfo {
 		    background: #eee;
         box-shadow: 0 0 5px #999999;
         color: #333;
@@ -39,32 +46,68 @@
         z-index: 10;
     }
 
-    .tooltip.small {
+    .hoverInfo.small {
         left: 130px;
         padding: 10px;
         top: 95px;
-        width: 80px;
+        width: 100px;
     }
 
-    .tooltip.big {
+    .hoverInfo.big {
         left: 130px;
         padding: 10px;
         top: 95px;
         width: 300px;
     }
 
+    .axis path,
+    .axis line {
+      fill: none;
+      stroke: #000;
+      shape-rendering: crispEdges;
+    }
+
+    .line {
+      fill: none;
+      stroke: steelblue;
+      stroke-width: 1.5px;
+    }
+
+    .clickableText {
+      cursor: pointer;
+    }
+
 
     </style>
-    <script src="d3.v3.min.js"></script>
+    <script src="js/d3.v3.min.js"></script>
+    <script src="js/c3/c3.min.js"></script>
+
+    <script src="js/cloud.min.js"></script>
+    <script src="js/functions.js"></script>
+    <script src="js/multiline.js"></script>
+    <script src="js/linechart.js"></script>
+    <script src="js/wordcloud.js"></script>
+
+    <link rel="stylesheet" type="text/css" href="css/multiline.css">
+    <link rel="stylesheet" type="text/css" href="js/c3/c3.css">
+     <!-- Bootstrap -->
+    <!--<link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">-->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js"></script>
+    <script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
   </head>
   <body>
-    <div id="chart"></div>
-    <div id="nav"></div>
-    <div id="dataset-picker">
+	<div id="nav" style="width: 80%; display: block; margin: 0 auto; padding-bottom: 0.5%;"></div>
+    <div id="chart" style="width: 85%; float: left;"></div>
+	<div id="sidebar" style="width: 14%; height: match-parent; float: left; padding-left: 1%;"></div>
+    <div id="dataset-picker" class="btn-group" role="group" style="width: auto; clear: both; float: left;"></div>
+    <div id="characterInfo" style="width: 100%; float: left;">
+      <h2 id="characterName"></h2>
+      <div id="characterWordcloud" style="float: left"></div>
+      <div id="characterLineChart" style="float: left"></div>
     </div>
     <script type="text/javascript">
-    // Source: http://bl.ocks.org/tjdecke/5558084
-    // Alternative: http://bl.ocks.org/mbostock/3202354
+
+    //TODO switching dataset inconsistencies
 
 		var seasonMap =
 			[
@@ -75,64 +118,105 @@
 				[13,14], [14,14], [15,14],
 				[16,14], [17,10], [18,10]
 			];
+			
+      var episodes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
-      var episodes = [];
-      seasonMap.forEach(function(s) {
-        episodes.push.apply(episodes, Array.apply(null, Array(s[1])).map(function (_, i) {return i+1;}));
-      });
+      var parserCombination = function(d) {
+        return {
+          character: +d.character,
+          episode: +d.episode,
+          words: +d.words,
+          value: +d.profanities
+        };
+      };
 
-      function palette(min, max) {
-    var d = (max-min)/15;
-    return d3.scale.threshold()
-        .range(['#ffffe0','#ffedbf','#ffdaa3','#ffc88d','#ffb27c','#ff9c70','#fb8768','#f47461','#eb5f5b','#df4c54','#d3394a','#c3273e','#b3152f','#9f051c','#8b0000'])
-        .domain([min+1*d,min+2*d,min+3*d,min+4*d,min+5*d,min+6*d,min+7*d,min+8*d,min+9*d,min+10*d,min+11*d,min+12*d,min+13*d,min+14*d,min+15*d]);
-}
+      var parserSingle = function(d) {
+        if(+d.character > 0)
+        return {
+          character: +d.character,
+          episode: +d.episode,
+          value: +d.value
+        };
+        else
+          return null;
+      };
 
       var characters = ["Cartman", "Kyle", "Stan", "Kenny", "Butters", "Chef", "Randy", "Wendy", "Mr. Garrison", "Clyde", "Craig"],
-          margin = { top: 50, right: 0, bottom: 30, left: 100 },
-          shownEpisodes = 50,
+			excluded_characters = [];
+			number_to_character = {1: "Cartman", 2:  "Kyle", 3: "Stan", 4: "Kenny", 5: "Butters", 6: "Chef", 7: "Randy", 8: "Wendy", 9: "Mr. Garrison", 10: "Clyde", 11: "Craig"},
+			character_to_position = {"Cartman": 1, "Kyle": 2, "Stan": 3, "Kenny": 4, "Butters": 5, "Chef": 6, "Randy": 7, "Wendy": 8, "Mr. Garrison": 9, "Clyde": 10, "Craig": 11},
+			newest_data = [];
+          margin = { top: 20, right: 0, bottom: 30, left: 100 },
+          shownEpisodes = 2 * Math.round((window.innerWidth/25) / 2),
           startEpisode = 0,
           gridSize = 20,
           navTileSize = gridSize*shownEpisodes/episodes.length,
           width = gridSize*shownEpisodes,
-          height = characters.length * gridSize,
+          height = (characters.length+1) * gridSize,
           legendElementWidth = gridSize*3,
           buckets = 9,
-          /*colors = ["#ffffd9","#edf8b1","#c7e9b4","#7fcdbb","#41b6c4","#1d91c0","#225ea8","#253494","#081d58", "#ff8080", "#ff1a1a", "#660000", "#330000"], // alternatively colorbrewer.YlGnBu[9];*/
-          colors = /*['#ffffe0','#ffedbf','#ffdaa3','#ffc88d','#ffb27c','#ff9c70','#fb8768','#f47461','#eb5f5b','#df4c54','#d3394a','#c3273e','#b3152f','#9f051c','#8b0000'],*/["#ffffe5","#fff7bc","#fee391","#fec44f","#fe9929","#ec7014","#cc4c02","#993404","#662506"],
+          colors = ["#ffffe5","#fff7bc","#fee391","#fec44f","#fe9929","#ec7014","#cc4c02","#993404","#662506"],
           datasets = [
-            {dataset:"all_words.tsv", scale:[0, 1, 2, 5, 10, 20, 30, 40, 50, 100]},
-            {dataset:"profanities.tsv", scale:[0, 5, 10, 15, 20, 30, 40, 80, 100, 1000]}
-          ];
+            {dataset:"data/combination.tsv", scale:[0, 5, 10, 15, 20, 30, 40, 80, 100, 1000], parser:parserCombination},
+            {dataset:"data/all_words.tsv", scale:[0, 1, 2, 5, 10, 20, 30, 40, 50, 100], parser:parserSingle},
+            {dataset:"data/profanities.tsv", scale:[0, 5, 10, 15, 20, 30, 40, 80, 100, 1000], parser:parserSingle}
+          ],
+          combination = true;
 
+    d3.select("#characterInfo").attr("width", width + margin.left + margin.right);
+			
       var svg = d3.select("#chart").append("svg")
-          .attr("width", width + margin.left + margin.right)
-          .attr("height", height + margin.top + margin.bottom)
+			.attr("float", "right")
+          .attr("width", "100%")
+          .attr("height", "100%")
+		  .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+		  .attr("preserveAspectRatio", "xMinYMin meet")
           .append("g")
           .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
       var svgNav = d3.select("#nav").append("svg")
-          .attr("width", (navTileSize*episodes.length) + margin.left + margin.right)
-          .attr("height", navTileSize * characters.length)
-          .append("g")
-          .attr("transform", "translate(" + margin.left + ",0 )");
+          .attr("width", "100%")
+          .attr("height", "100%")
+		  .attr("viewBox", "0 0 " + ((navTileSize*episodes.length)) + " " + (navTileSize * characters.length + 4))
+		  .attr("preserveAspectRatio", "xMidYMin meet")
+          .append("g");
 
-      var characterLabels = svg.selectAll(".dayLabel")
+      var navRect = svgNav.append("rect")
+            .attr("x", 0)
+            .attr("y", 1)
+            .attr("fill-opacity", 0.0)
+            .attr("width", navTileSize * shownEpisodes)
+            .attr("height", navTileSize * characters.length+2)
+            .attr("class", "navigationRectangle");
+
+      var characterLabels = svg.selectAll(".characterLabel")
           .data(characters)
           .enter().append("text")
             .text(function (d) { return d; })
             .attr("x", 0)
-            .attr("y", function (d, i) { return i * gridSize; })
+            .attr("y", function (d, i) { return (i+1) * gridSize; })
             .style("text-anchor", "end")
             .attr("transform", "translate(-6," + gridSize / 1.5 + ")")
-            .attr("class", "dayLabel mono axis axis-workweek")
+            .attr("class", "characterLabel mono axis clickableText")
             .on("click", function(c,i) {
-              //TODO toggle selection of character and redraw
+              showCharacterInfo(c);
             });
+		
+		var deleteCharacterButtons = svg.selectAll(".deleteButton")
+			.data(characters)
+			.enter().append("path")
+            .style("fill", "red")
+			.style("stroke","white")
+			.style("stroke-width","2")
+            .attr("transform", function (d, i) { return "translate(" + (-margin.left + 5) + "," + (((i+1) * gridSize) +  (gridSize / 2)) + ")rotate(45)"; })
+			.attr("d", d3.svg.symbol().size(100).type('cross'))
+			.on("click", function(d, i) {
+				update_displayable_characters(false, d);
+			});		
 
     var episodeTooltip = d3.select("#chart")
           .append("div")
-          .attr("class", "tooltip big");
+          .attr("class", "hoverInfo big");
     episodeTooltip.append('div')
       .attr('class', 'title');
     episodeTooltip.append('div')
@@ -145,7 +229,7 @@
 		// TOOLTIP
 		var tooltip = d3.select('#chart')
           .append('div')
-          .attr('class', 'tooltip small');
+          .attr('class', 'hoverInfo small');
         tooltip.append('div')
           .attr('class', 'character');
         tooltip.append('div')
@@ -153,7 +237,7 @@
 
     var episodeInfo;
 
-    d3.tsv("episodes.tsv", 
+    d3.tsv("data/episodes.tsv", 
       function (d) {
         return {
           episode: +d.episode,
@@ -166,50 +250,31 @@
       }
     );
 
-    var parseFunction = function(d) {
-          if(+d.character > 0)
-          return {
-            character: +d.character,
-            episode: +d.episode,
-            value: +d.value
-          };
-          else
-            return null;
-        };
+      var marginScale = d3.scale.linear()
+          .domain([0, 40])
+          .range([gridSize/3, 0]);
 
-      var heatmapChart = function(tsvFile) {
+      var gridSizeScale = function(d) { 
+        if (d.words == 0)
+          return 1;
+        return gridSize - marginScale(d.words)*2; 
+      }
+
+      var heatmapChart = function(tsvFile, parseFunction) {
         d3.tsv(tsvFile, parseFunction, heatmapDrawer);
       };
+
       var heatmapDrawer = function(error, data) {
         newData = data.slice(startEpisode, (startEpisode+shownEpisodes)*characters.length);
-          var episodeLabels = svg.selectAll(".episodeLabel")
-            .data(episodes.slice(startEpisode, startEpisode+shownEpisodes));
 
-          episodeLabels
-            .enter().append("text")
-              .attr("x", function(d, i) { return i * gridSize; })
-              .attr("y", 0)
-              .style("text-anchor", "middle")
-              .attr("transform", "translate(" + gridSize / 2 + ", -6)")
-              .attr("class", function(d, i) { return (((i >= 0 && i < 13) || (i>=31 && i < 41)) ? "episodeLabel mono axis axis-worktime" : "episodeLabel mono axis"); })
-              .text(function(d) { return d; });
-
-          //Episode Tooltips
-          episodeLabels.on('mouseover', function(d, i) {
-            episodeTooltip.select('.title').html(mapEpisodeToNotation(i+startEpisode+1) + ": " + episodeInfo[i+startEpisode].title);
-            episodeTooltip.select('.airdate').html("<b>Airdate: </b>" + episodeInfo[i+startEpisode].airdate);
-            episodeTooltip.select('.description').html(episodeInfo[i+startEpisode].description);
-            episodeTooltip.style('display', 'block');
-          });
-
-          episodeLabels.on('mouseout', function() {
-            episodeTooltip.style('display', 'none');
-          });
-
-          episodeLabels.on('mousemove', function(d) {
-            episodeTooltip.style('top', (d3.event.layerY + 10) + 'px')
-              .style('left', (d3.event.layerX + 10) + 'px');
-          });
+        //Show season information
+        var seasonLabels = svg.selectAll(".seasonLabel").data(getSeasonLabelData());
+        seasonLabels.enter().append("text")
+          .attr("class", function(d, i) { return d.season & 1 == 1 ? "seasonLabel mono axis axis" : "seasonLabel mono axis-odd"; })
+		  .style("font-size","11pt")
+          .attr("x", function(d) { return ((d.x + d.size/2 - 2) * gridSize + 6);})
+          .attr("y", 0)
+          .text(function(d) { return "SEASON " + d.season; });
 
           var colorScale = d3.scale.quantile()
               .domain(scalePoints)
@@ -219,20 +284,35 @@
               .data(newData);
 
           cards.enter().append("rect")
-              .attr("x", function(d) { return (d.episode - 1) * gridSize; })
-              .attr("y", function(d) { return (d.character - 1) * gridSize; })
               .attr("class", "episode bordered")
-              .attr("width", gridSize)
-              .attr("height", gridSize)
               .style("fill", colors[0]);
 
-          cards.transition().duration(1000)
+          var cardsTrans = cards.transition().duration(0)
               .style("fill", function(d) { return colorScale(d.value); });
+          if(combination)
+            cardsTrans
+              .attr("x", function(d) {
+                return (d.episode - 1) * gridSize + (d.words == 0 ? gridSize / 2: marginScale(d.words));
+              })
+              .attr("y", function(d) {
+                return d.character * gridSize + (d.words == 0 ? gridSize / 2 : marginScale(d.words));
+              })
+              .attr("width", gridSizeScale)
+              .attr("height", gridSizeScale);
+          else
+            cardsTrans
+              .attr("x", function(d) { return (d.episode - 1) * gridSize; })
+              .attr("y", function(d) { return d.character * gridSize; })
+              .attr("width", gridSize)
+              .attr("height", gridSize);
 
 		      // TOOLTIP
 		      cards.on('mouseover', function(d) {
             tooltip.select('.character').html(characters[d.character-1]);
-            tooltip.select('.episode').html(mapEpisodeToNotation(d.episode+startEpisode) + ": <b>" + d.value + "</b>");
+            tooltip.select('.episode').html(
+              combination ?
+                mapEpisodeToNotation(d.episode+startEpisode) + "</br>Words: <b>" + d.words + "%</b></br>Profanities: <b>" + d.value + "‰</b>" : 
+                mapEpisodeToNotation(d.episode+startEpisode) + ": <b>" + d.value + "</b>");
             tooltip.style('display', 'block');
           });
 
@@ -268,15 +348,58 @@
             .attr("width", legendElementWidth)
             .attr("height", gridSize / 2)
             .style("fill", function(d, i) { return colors[i]; });
+
+        //Show episode labels
+
+          var episodeLabels = svg.selectAll(".episodeLabel")
+            .data(episodes.slice(startEpisode, startEpisode+shownEpisodes));
+
+          episodeLabels
+            .enter().append("text")
+              .attr("x", function(d, i) { return i * gridSize; })
+              .attr("y", gridSize)
+              .style("text-anchor", "middle")
+              .attr("transform", "translate(" + gridSize / 2 + ", -6)")
+              .attr("class", function(d, i) { return mapEpisodeSeasonEpisode(startEpisode+i+1)[0]%2 == 0 ? "episodeLabel mono axis axis-odd" : "episodeLabel mono axis"; })
+              .text(function(d) { return d; });
+
+          //Episode Tooltips
+          episodeLabels.on('mouseover', function(d, i) {
+            episodeTooltip.select('.title').html(mapEpisodeToNotation(i+startEpisode+1) + ": " + episodeInfo[i+startEpisode].title);
+            episodeTooltip.select('.airdate').html("<b>Airdate: </b>" + episodeInfo[i+startEpisode].airdate);
+            episodeTooltip.select('.description').html(episodeInfo[i+startEpisode].description);
+            episodeTooltip.style('display', 'block');
+          });
+
+          episodeLabels.on('mouseout', function() {
+            episodeTooltip.style('display', 'none');
+          });
+
+          episodeLabels.on('mousemove', function() {
+            episodeTooltip.style('top', (d3.event.layerY + 10) + 'px')
+              .style('left', (d3.event.layerX + 10) + 'px');
+          });
+
+          episodeLabels.on('click', function(d, i) {
+            showEpisodeInfo(startEpisode + i + 1);
+          });
         };
 
       var updateHeatMap = function(data) {
-          var colorScale = d3.scale.quantile()
+			newest_data = data;
+			
+			var new_data = [];
+			data.forEach(function(d){
+				if(characters.indexOf(number_to_character[d.character]) != - 1)
+					new_data.push(d);
+			});
+			
+		  var colorScale = d3.scale.quantile()
               .domain(scalePoints)
               .range(colors);
 
           var cards = svg.selectAll(".episode")
-              .data(data);
+              .data(new_data);
           /*cards.attr("class", "episode bordered update");
           cards.enter().append("rect")
               .attr("x", function(d) { return (d.episode - 1) * gridSize; })
@@ -286,18 +409,187 @@
               .attr("height", gridSize)
               .style("fill", colors[0]);*/
           cards.style("fill", function(d) { return colorScale(d.value); });
+          if(combination)
+            cards
+              .attr("x", function(d) {
+                return (d.episode - 1) * gridSize + (d.words == 0 ? gridSize / 2 : marginScale(d.words));
+              })
+              .attr("y", function(d) {
+                return (characters.indexOf(number_to_character[d.character]) + 1) * gridSize + (d.words == 0 ? gridSize / 2 : marginScale(d.words));
+              })
+              .attr("width", gridSizeScale)
+              .attr("height", gridSizeScale);
+
+          //TODO if wanted: difference in borders
+          /*if(combination)
+            cards.attr("class", "episode combination");
+          else
+            cards.attr("class", "episode bordered");*/
           cards.exit().remove();
 
           var episodeLabels = svg.selectAll(".episodeLabel")
-            .data(episodes.slice(startEpisode, startEpisode+50));
+            .data(episodes.slice(startEpisode, startEpisode+shownEpisodes))
+            .text(function(d) { return d; })
+            .attr("class", function(d, i) { return mapEpisodeSeasonEpisode(startEpisode+i+1)[0]%2 == 0 ? "episodeLabel mono axis axis-odd" : "episodeLabel mono axis"; });;
 
-          episodeLabels.transition().duration(0)
-              .text(function(d) { return d; });
+          var seasonLabels = svg.selectAll(".seasonLabel")
+            .data(getSeasonLabelData())
+            .attr("class", function(d, i) { return d.season & 1 == 1 ? "seasonLabel mono axis axis" : "seasonLabel mono axis-odd"; })
+			.attr("x", function(d) { return ((d.x + d.size/2 - 2) * gridSize + 6);})
+			.text(function(d) { return "SEASON " + d.season; });
       };
+		
+		function update_displayable_characters(add, character) {
+			// Add a character to the heatmap
+			if(add)
+			{
+				var index = excluded_characters.indexOf(character);
+				excluded_characters.splice(index,1);
+				characters.push(character);
+			}
+			// Delete one
+			else
+			{
+				var index = characters.indexOf(character);
+				characters.splice(index,1);
+				excluded_characters.push(character);
+			}
+			
+			characterLabels.remove();
+			characterLabels = svg.selectAll(".characterLabel")
+				.data(characters)
+				.enter().append("text")
+				.text(function (d) { return d; })
+				.attr("x", 0)
+				.attr("y", function (d, i) { return (i+1) * gridSize; })
+				.style("text-anchor", "end")
+				.attr("transform", "translate(-6," + gridSize / 1.5 + ")")
+				.attr("class", "characterLabel mono axis")
+				.on("click", function(c,i) {
+					showCharacterInfo(c);
+				});
+				
+			deleteCharacterButtons.remove();
+			deleteCharacterButtons = svg.selectAll(".deleteButton")
+				.data(characters)
+				.enter().append("path")
+				.style("fill", "red")
+				.style("stroke","white")
+				.style("stroke-width","2")
+				.attr("transform", function (d, i) { return "translate(" + (-margin.left + 5) + "," + (((i+1) * gridSize) +  (gridSize / 2) ) + ")rotate(45)"; })
+				.attr("d", d3.svg.symbol().size(100).type('cross'))
+				.on("click", function(d, i) {
+					update_displayable_characters(false, d);
+				});
+				
+			if(excluded_characters.length > 0)
+			{
+				
+				var sidebar = d3.select("#sidebar");
+				sidebar.select("svg").remove();
+				var sidebarSVG = sidebar.append("svg")
+					.attr("width", "100%")
+					.attr("height", "100%")
+					.attr("viewBox", "0 0 " + (window.innerWidth*0.14) + " auto")
+					.attr("preserveAspectRatio", "xMinYMin meet")
+					.append("g");
+					
+				sidebarSVG.selectAll(".excludedTitle")
+					.data([{}])
+					.enter().append("text")
+					.text("Excluded Characters").style("font-family", "Consolas, courier")
+					.attr("transform", function (d, i) { return "translate(0," + ((i+1) * gridSize + (-2)) + ")"; });;
+				
+				var labelz = sidebarSVG.append("g")
+					.attr("transform", "translate(0,15)");
+					
+				labelz.selectAll(".excludedCharacters")
+					.data(excluded_characters)
+					.enter().append("text")
+					.text(function (d) { return d; })
+					.attr("class", "excluded_charactersLabel mono axis")
+					.attr("transform", function (d, i) { return "translate(20," + ((i+1) * gridSize + (-2)) + ")"; });
+		
+				labelz.selectAll(".addButton")
+					.data(excluded_characters)
+					.enter().append("path")
+					.style("fill", "green")
+					.style("stroke","white")
+					.style("stroke-width","2")
+					.attr("transform", function (d, i) { return "translate(7," + (((i+1) * gridSize) - 5) + ")"; })
+					.attr("d", d3.svg.symbol().size(100).type('cross'))
+					.on("click", function(d, i) {
+						update_displayable_characters(true, d);
+					});
+				
+				//sidebarSVG.selectAll("h1").data([{}]).enter().insert("h1").html("My title").attr("x", 1000);
+			}
+			else if(excluded_characters.length == 0)
+			{
+				d3.select("#sidebar").select("svg").remove();
+			}
 
-      heatmapChart(datasets[0].dataset);
+			// Delete data of characters that are not in 'characters'
+			var new_data = [];
+			newest_data.forEach(function(d){
+				if(characters.indexOf(number_to_character[d.character]) != - 1)
+					new_data.push(d);
+			});
+		  
+			var colorScale = d3.scale.quantile()
+				.domain(scalePoints)
+				.range(colors);
 
-      var nav = function(tsvFile) {
+			var cards = svg.selectAll(".episode").remove();
+			
+			cards = svg.selectAll(".episode").data(new_data);
+
+			cards.enter().append("rect")
+				.attr("class", "episode bordered")
+				.style("fill", colors[0]);
+
+			var cardsTrans = cards.transition().duration(0)
+				.style("fill", function(d) { return colorScale(d.value); });
+			if(combination)
+				cardsTrans
+					.attr("x", function(d) {
+						return (d.episode - 1) * gridSize + (d.words == 0 ? gridSize / 2: marginScale(d.words));
+					})
+					.attr("y", function(d) {
+						return (characters.indexOf(number_to_character[d.character]) + 1) * gridSize + (d.words == 0 ? gridSize / 2 : marginScale(d.words));
+					})
+					.attr("width", gridSizeScale)
+					.attr("height", gridSizeScale);
+			else
+				cardsTrans
+					.attr("x", function(d) { return (d.episode - 1) * gridSize; })
+					.attr("y", function(d) { return d.character * gridSize; })
+					.attr("width", gridSize)
+					.attr("height", gridSize);
+
+			// TOOLTIP
+			cards.on('mouseover', function(d) {
+				tooltip.select('.character').html(characters[d.character-1]);
+				tooltip.select('.episode').html(
+					combination ?
+						mapEpisodeToNotation(d.episode+startEpisode) + "</br>Words: <b>" + d.words + "%</b></br>Profanities: <b>" + d.value + "‰</b>" : 
+						mapEpisodeToNotation(d.episode+startEpisode) + ": <b>" + d.value + "</b>");
+				tooltip.style('display', 'block');
+			});
+
+			cards.on('mouseout', function() {
+				tooltip.style('display', 'none');
+			});
+
+			cards.on('mousemove', function(d) {
+				tooltip.style('top', (d3.event.layerY + 10) + 'px')
+					.style('left', (d3.event.layerX + 10) + 'px');
+			});
+		}
+
+      heatmapChart(datasets[0].dataset, datasets[0].parser);
+
+      var nav = function(tsvFile, parseFunction) {
         d3.tsv(tsvFile, parseFunction,
         function(error, data) {
           var colorScale = d3.scale.quantile()
@@ -305,47 +597,64 @@
               .range(colors);
 
           var cards = svgNav.selectAll(".episodeNav")
-              .data(data, function(d) {return d.character+':'+d.episode;});
+              .data(data);
 
           cards.enter().append("rect")
               .attr("x", function(d) { return (d.episode - 1) * navTileSize; })
-              .attr("y", function(d) { return (d.character - 1) * navTileSize; })
+              .attr("y", function(d) { return (d.character -1 ) * navTileSize + 2; })
               .attr("width", navTileSize)
               .attr("height", navTileSize)
-              .style("fill", colors[0])
+              .style("fill", colors[0]);
+              /*
               .attr("class", function(d) {
                   if(d.episode > startEpisode && d.episode <= startEpisode + shownEpisodes)
                     return "inScope";
-                });;
+                });*/
+
+
 
           cards.on('mouseover', function(d, i) {
                 //Minimally show 50
+				var length = characters.length + excluded_characters.length;
                 var toSplice = Math.max(0, Math.min(
-                  i - (i % characters.length) - (shownEpisodes/2 * characters.length),
-                  data.length - shownEpisodes * characters.length));
-                startEpisode = toSplice / characters.length;
+                  i - (i % length) - (shownEpisodes/2 * length),
+                  data.length - shownEpisodes * length));
+                startEpisode = toSplice / length;
 
                 //Update heatmap with selected data
                 var newData = [];
                 //newData.splice(0, toSplice);
                 for(var ep = 0; ep < shownEpisodes ; ep++) {
-                  for(var c = 0; c < characters.length; c++) {
-                    var index = (ep*characters.length)+c;
-                    newData[index] = {
-                      "episode": ep+1,
-                      "character": data[index+toSplice].character,
-                      "value": data[index+toSplice].value
-                    };
+                  for(var c = 0; c < length; c++) {
+                    var index = (ep*length)+c;
+                    if(combination)
+                      newData[index] = {
+                        "episode": ep+1,
+                        "character": data[index+toSplice].character,
+                        "words": data[index+toSplice].words,
+                        "value": data[index+toSplice].value
+                      };
+                    else
+                      newData[index] = {
+                        "episode": ep+1,
+                        "character": data[index+toSplice].character,
+                        "value": data[index+toSplice].value
+                      };
                   }
                 }
+                navRect
+                  .transition()
+                  .duration(0)
+                  .attr("x", startEpisode*navTileSize-1);
+
                 updateHeatMap(newData);
                 //heatmapDrawer(null, newData);
-
                 //Show selection in navigation bar
-                cards.transition().duration(0).attr("class", function(d) {
+                //TODO optimize:
+                /*cards.transition().duration(0).attr("class", function(d) {
                   if(d.episode > startEpisode && d.episode <= startEpisode + shownEpisodes)
                     return "inScope";
-                });
+                });*/
 
                 /*var change = svg.selectAll(".timeLabel")
                   .transition();
@@ -355,7 +664,7 @@
             .attr("y", 0)
             .style("text-anchor", "middle")
             .attr("transform", "translate(" + gridSize / 2 + ", -6)")
-            .attr("class", function(d, i) { return (((i >= 0 && i < 13) || (i>=31 && i < 41)) ? "timeLabel mono axis axis-worktime" : "timeLabel mono axis"); });*/
+            .attr("class", function(d, i) { return (((i >= 0 && i < 13) || (i>=31 && i < 41)) ? "timeLabel mono axis axis-odd" : "timeLabel mono axis"); });*/
                 /*var c = svg.selectAll(".episode")
                   .data(data, function(d) {return d.character+':'+d.episode;});
 
@@ -372,7 +681,7 @@
                       .style("fill", function(d) { return colorScale(d.value); });*/
               });
 
-          cards.transition().duration(1000)
+          cards.transition().duration(0)
               .style("fill", function(d) { return colorScale(d.value); });
 
           cards.exit().remove();
@@ -380,7 +689,7 @@
         });
       };
 
-      nav(datasets[0].dataset);
+      nav(datasets[0].dataset, datasets[0].parser);
 
       //gridSize = 5;
 
@@ -391,30 +700,128 @@
         .append("input")
         .attr("value", function(d){ return d.dataset; })
         .attr("type", "button")
-        .attr("class", "dataset-button")
-        .on("click", function(d) {
+        .attr("class", "dataset-button btn btn-default")
+        .on("click", function(d, i) {
+          combination = i==0;
           startEpisode = 0;
           scalePoints = d.scale;
-          heatmapChart(d.dataset);
-          nav(d.dataset);
+          heatmapChart(d.dataset, d.parser);
+          nav(d.dataset, d.parser);
         });
 
-	function mapEpisodeToNotation(episode)
-	{
-		var season = 1;
-		var result = "S0E0";
-		seasonMap.forEach(function(entry) {
+//Character information
+     /* var profanitiesChart = lineChart()
+        .x(function(d) { return +d.season; })
+        .y(function(d) { return +d.words; });*/
 
-			if(episode <= entry[1])
-				result = "S" + season + "E" + episode;
-			else if(result == "S0E0")
-			{
-				episode -= entry[1];
-				season++;
-			}
-		});
-		return result;
-	}
+      var wordle = wordcloud();
+
+      function showCharacterInfo(character) {
+        d3.select("#characterName").transition()
+          .text(character);
+        rotations = [0];
+        //drawWordle(character);
+        //lineCharts(character);
+
+        d3.tsv("data/character/" + character + "_wordcloud.tsv",
+          function(d) {
+            return {
+              text: d.word,
+              count: +d.count
+            };
+          }, function(data) {
+            d3.select("#characterWordcloud")
+              .datum(data)
+              .call(wordle.character(character).rotations([0]));
+          }
+        );
+      }
+
+//Episode information
+      function showEpisodeInfo(episodeNb) {
+        d3.select("#episodeTitle")
+          .text(mapEpisodeToNotation(episodeNb) + ": " + episodeInfo[episodeNb-1].title);
+        rotations = [-60, -30, 0, 30, 60];
+        drawWordle("data/episode/" + episodeNb + "_profanities.tsv");
+      }
+
+
+//Word Clouds
+
+      /*var wordFill = d3.scale.category20();
+      var rotations = [-60, -30, 0, 30, 60],
+        wordleWidth = 600, 
+        wordleHeight = 400;
+      var svgCloud = d3.select("#episodeInformation").append("svg")
+            .attr("width", wordleWidth)
+            .attr("height", wordleHeight)
+          .append("g")
+            .attr("transform", "translate(" + wordleWidth / 2 + "," + wordleHeight / 2 + ")");
+
+
+      function drawWordle(character) {
+        d3.tsv("characterData/" + character + "_wordcloud.tsv",
+          function(d) {
+            return {
+              text: d.word,
+              count: +d.count
+            };
+          },
+          //TODO sort data: biggest count on top to ensure that they are showed
+          function(error, data) {
+            var sizeScale = d3.scale.linear()
+              .domain([1, d3.max(data, function(d) { return d.count;})])
+              .range([15,50]);
+            d3.layout.cloud()
+                .size([wordleWidth, wordleHeight])
+                .words(data)
+                .padding(5)
+                .rotate(function() { return rotations[~~(Math.random() * rotations.length)]; })
+                .font("Impact")
+                .fontSize(function(d) { return sizeScale(d.count); })
+                .on("end", draw)
+                .start();
+          });
+      }
+
+
+      function draw(words) {
+        var cloud = svgCloud.selectAll(".word")
+          .data(words);
+
+        cloud.enter()
+          .append("text")
+            .attr("class", "word")
+            .style("font-size", 1)
+            .style("font-family", "Impact")
+            .style("fill", function(d, i) { return wordFill(i); })
+            .attr("text-anchor", "middle")
+            .on("click", function(d) {
+              d3.tsv("wordData/Cartman_" + d.text + ".tsv", function(data) {
+                d3.select("#lineChart")
+                  .datum(data)
+                  .call(profanitiesChart.word(d.text));
+              })
+            });
+
+        cloud.transition()
+            .duration(1000)
+            .attr('font-size', function(d) { return d.size; })
+            .attr("transform", function(d) {
+                return "translate(" + [d.x, d.y] + ")rotate(" + d.rotate + ")";
+            })
+            .text(function(d) { return d.text; });
+
+        //Exiting words
+        cloud.exit()
+            .transition()
+                .duration(500)
+                .style('fill-opacity', 1e-6)
+                .attr('font-size', 1)
+                .remove();
+      }*/
+
+
     </script>
   </body>
 </html>

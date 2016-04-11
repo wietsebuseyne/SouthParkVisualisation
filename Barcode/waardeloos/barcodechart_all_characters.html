@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+
+<head>
+	<style>
+
+	
+  .tooltip {
+    position: absolute;
+    width: 200px;
+    height: 28px;
+    pointer-events: none;
+  }
+
+	</style>
+</head>
+
+<body>
+	
+<script src="d3.v3.min.js"></script>
+
+<script>
+
+
+var margin = {top: 20, right: 20, bottom: 70, left: 40},
+    width = 700 - margin.left - margin.right,
+    height = 2000 - margin.top - margin.bottom;
+    barHeight = 50
+    barcodeDistance  = 70
+
+
+//kleurtjes voor personages 
+var colormap =  { "Cartman":"C11B17" 
+		,  "Kenny": "ff6633" ,  "Kyle" : "00cc33" ,  "Stan": "0041C2"  ,"Other": "f1f1ee", "Clyde" : "f1f1ee", "Chef": "#6F4E37", "Mr. Garrison" : "BCC6CC", "Wendy" : "fd86e1", "Randy" :"#48CCCD"};
+
+var episodecolormap = ["C11B17", "C11B17", "ff6633" , "ff6633", "ff6633", "ff6633", "ff6633", "ff6633", "ff6633", "ff6633", "fd86e1", "fd86e1", "fd86e1", "fd86e1"];
+
+var x = d3.scale.ordinal().rangeRoundBands([0, width], .05);
+
+var y = d3.scale.linear().range([height, 0]);
+
+
+//array met totalwords per episode
+//13 magic number, aanpassen aub! (episodes voor dit seizoen)
+var totalWords = Array.apply(null, Array(13)).map(Number.prototype.valueOf,0);
+
+
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+    .append("g")
+    .attr("transform", 
+          "translate(" + margin.left + "," + margin.top + ")");
+
+
+//data: episode, character, value
+d3.tsv("season-1.tsv", function(error, data) {
+    data.forEach(function(d) {
+        d.value = +d.value;
+        d.episode = +d.episode;
+        totalWords[d.episode-1] = totalWords[d.episode-1] + d.value;
+    });
+	
+
+//hooverding
+var tooltip = d3.select("body").append("div")
+    .attr("class", "tooltip")
+    .style("opacity", 0);
+
+
+
+function color(d){
+
+  return colormap[d.character];
+
+  //ZWART STREEPJE is btw echt niet duidelijk
+   // if(d.value < 0 ) {return '#fffff'}
+   //  else {return colormap[d.character];}
+
+}
+
+//schaal breedte voor balkje
+function scaleBarWidth(x) {
+  var w = x.value;
+  if(w<0) { w = -w;}
+  return (w*width/(totalWords[x.episode - 1]));
+}
+
+function scaleBarHeight(x){  
+  //STREEPJE
+  /*
+  if(x<0) {return 1.2*barHeight}
+    else {return barHeight}
+  // */
+
+  //DRIEHOEKJE
+  return barHeight;
+}
+
+function yPos(x){
+  // STREEPJE
+  /*
+  if(x.value<0) {return ((x.episode * barcodeDistance) - 0.2 * barHeight);}
+    else {return (x.episode * barcodeDistance);}
+  // */
+
+  //DRIEHOEKJE
+  return (x.episode * barcodeDistance);
+  
+}
+
+function xPos(x){
+	temp = cumul[x.episode - 1]; 
+	cumul[x.episode -1] = temp + scaleBarWidth(x); //OPTIMALISEER HIER die width wordt twee keer uitgerekend 
+  //DRIEHOEKJE
+  if(x.value<0) {drawTriangle(x, temp);}
+	return temp; 
+}
+
+//draw bars, with scaled width according to value
+//magic nb 13, aanpassen aub
+//50 is xpixel waarop episode barcode begint
+var cumul = Array.apply(null, Array(13)).map(Number.prototype.valueOf,50);
+
+
+svg.selectAll("bar")
+      .data(data)
+      .enter().append("rect")
+      .style("fill", function(d) {return color(d);}) 
+      										//episodecolormap[d.episode];})
+      									
+      .attr("x", function(d) { return xPos(d);})  //xpositie van volgende is xpositie van vorige plus de breedte van vorige
+      .attr("y", function(d){ return yPos(d);})  
+      .attr("width", function(d){ return scaleBarWidth(d);})
+      .attr("height", function(d) { return  scaleBarHeight(d.value); })
+
+      .on("mouseover", function(d) { //hooverdinks 
+          tooltip.transition()
+               .duration(200)
+               .style("opacity", .9);
+          tooltip.html(d.character + ": " + d.value)
+               .style("left", (d3.event.pageX + 5) + "px")
+               .style("top", (d3.event.pageY - 28) + "px");
+      })
+      .on("mouseout", function(d) {
+          tooltip.transition()
+               .duration(500)
+               .style("opacity", 0);
+      });
+
+});
+
+
+function drawTriangle(d, x_pos){
+  let y_pos = d.episode * barcodeDistance;
+  
+   tHeight = 7
+   tWidth = 5
+
+  var trianglePoints = x_pos + ' '             + y_pos + ', ' 
+                    + (x_pos - tWidth)  + ' ' + (y_pos - tHeight) + ', ' 
+                    + (x_pos + tWidth ) + ' ' + (y_pos - tHeight )+ ', ' 
+                    + x_pos + ' '              + y_pos;
+
+  svg.append('polyline')
+      .attr('points', trianglePoints)
+      .style('stroke', colormap[d.character])
+      .style('fill', colormap[d.character]);
+}
+
+         
+
+//});
+
+
+
+
+</script>
+
+</body>

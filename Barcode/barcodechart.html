@@ -3,13 +3,18 @@
 
 <head>
 	<style>
-
 	
-  .tooltip {
-    position: absolute;
-    width: 200px;
-    height: 28px;
-    pointer-events: none;
+  .tooltip { 
+     position: absolute;			
+    text-align: center;			
+    width: 60px;					
+    height: 10px;					
+    padding: 2px;				
+    font: 8px sans-serif;		
+    background: white;	
+    border: 0px;		
+    border-radius: 8px;			
+    pointer-events: none;			
   }
 
 	</style>
@@ -25,23 +30,25 @@
 var margin = {top: 20, right: 20, bottom: 70, left: 40},
     width = 700 - margin.left - margin.right,
     height = 2000 - margin.top - margin.bottom;
-    barHeight = 50
+    barHeight = 10
+    barcodeDistance  = 15
+
+
+var nbOfEpisodes = 13 //MAGIC NUMBER AAN TE PASSEN!!!
 
 
 //kleurtjes voor personages 
 var colormap =  { "Cartman":"C11B17" 
-		,  "Kenny": "ff6633" ,  "Kyle" : "00cc33" ,  "Stan": "0041C2"  ,"Other": "f1f1ee",  
-"Chef": "f1f1ee", "Mr. Garrison" : "f1f1ee", "Wendy" : "f1f1ee"};
-//"Chef": "#6F4E37", "Mr. Garrison" : "BCC6CC", "Wendy" : "fd86e1"};
+		,  "Kenny": "ff6633" ,  "Kyle" : "00cc33" ,  "Stan": "0041C2"  ,"Other": "f1f1ee", // "Chef": "f1f1ee", "Mr. Garrison" : "f1f1ee", "Wendy" : "f1f1ee", "Randy" :"#f1f1ee", "Clyde": "#f1f1ee"};
+"Chef": "#6F4E37", "Mr. Garrison" : "BCC6CC", "Wendy" : "fd86e1", "Randy" :"#48CCCD"};
 
-var episodecolormap = ["C11B17", "C11B17", "ff6633" , "ff6633", "ff6633", "ff6633", "ff6633", "ff6633", "ff6633", "ff6633", "fd86e1", "fd86e1", "fd86e1", "fd86e1"];
 
+//ik denk niet dat dit zelfs nog gebruikt wordt
 var x = d3.scale.ordinal().rangeRoundBands([0, width], .05);
-
 var y = d3.scale.linear().range([height, 0]);
 
 
-//array met totalwords per episode
+//array met totalwords per episode, wordt hierbeneden aangevuld
 var totalWords = Array.apply(null, Array(13)).map(Number.prototype.valueOf,0);
 
 
@@ -55,58 +62,78 @@ var svg = d3.select("body").append("svg")
 
 
 //data: episode, character, value
+//maak nummers van strings en tel total words per episode
+//OPTIMALISEER door total nb of words in tsv zetten?
 d3.tsv("season-1.tsv", function(error, data) {
     data.forEach(function(d) {
         d.value = +d.value;
         d.episode = +d.episode;
         totalWords[d.episode-1] = totalWords[d.episode-1] + d.value;
     });
-	
 
-//hooverding
+	
+//hooverding, boven bij tooltip layout aanpassen
 var tooltip = d3.select("body").append("div")
     .attr("class", "tooltip")
     .style("opacity", 0);
 
-//schaal breedte voor balkje
+
+//kleur van balkje
+function color(d){
+  return colormap[d.character];
+}
+
+//breedte voor balkje
 function scaleBarWidth(x) {
   var w = x.value;
   if(w<0) { w = -w;}
   return (w*width/(totalWords[x.episode - 1]));
 }
 
-function scaleBarHeight(x){
-  if(x<0) {return 1.2*barHeight}
-    else {return barHeight}
-}
 
+
+//ypos voor balkje (afhankelijk van episode)
 function yPos(x){
-  //if(x.episode == 10) {console.log("joehoeew");}
-  if(x.value<0) {return ((x.episode * 50) - 0.2*barHeight);}
-    else {return (x.episode *50);}
+  return (x.episode * barcodeDistance);
+  
 }
 
-//draw bars, with scaled width according to value
-var cumul = 50;
+
+//array die per episode laatste xpos bijhoudt. Begint bij 50 >> linkermarge
+							//array is even groot als aantal episodes
+														//vul array met 50
+var cumul = Array.apply(null, Array(nbOfEpisodes)).map(Number.prototype.valueOf, 50);
+
+
+//xpos voor balkje (mssn niet de beste manier om uit te rekenen)
+////xpositie van volgende is xpositie van vorige plus de breedte van vorige
+function xPos(x){
+	temp = cumul[x.episode - 1]; 
+	cumul[x.episode -1] = temp + scaleBarWidth(x); 
+	//OPTIMALISEER HIER die width wordt twee keer uitgerekend. Eens hier en eens bij width
+  if(x.value<0) {drawTriangle(x, temp);}
+	return temp; 
+}
+
+
 
 svg.selectAll("bar")
       .data(data)
       .enter().append("rect")
-      .style("fill", function(d) {return colormap[d.character];}) 
-      										//episodecolormap[d.episode];})
-      									
-      .attr("x", function(d) { temp = cumul; cumul = cumul + scaleBarWidth(d); return temp; })  //xpositie van volgende is xpositie van vorige plus de breedte van vorige
+      .style("fill", function(d) {return color(d);})  //allemaal met bovenstaande functies
+      .attr("x", function(d) { return xPos(d);})  
       .attr("y", function(d){ return yPos(d);})  
       .attr("width", function(d){ return scaleBarWidth(d);})
-      .attr("height", function(d) { return  scaleBarHeight(d.value); })
+      .attr("height", barHeight)
 
-      .on("mouseover", function(d) { //hooverdinks 
+      .on("mouseover", function(d) { //hooverding 
           tooltip.transition()
                .duration(200)
                .style("opacity", .9);
           tooltip.html(d.character + ": " + d.value)
-               .style("left", (d3.event.pageX + 5) + "px")
-               .style("top", (d3.event.pageY - 28) + "px");
+               .style("left", (d3.event.pageX - 30) + "px")
+               .style("top", (d3.event.pageY - 20) + "px");
+               //.style("fontsize", 8px);
       })
       .on("mouseout", function(d) {
           tooltip.transition()
@@ -115,6 +142,46 @@ svg.selectAll("bar")
       });
 
 });
+
+
+
+function drawTriangle(d, x_pos){
+  let y_pos = d.episode * barcodeDistance;
+  
+   tHeight = 3
+   tWidth = 2
+
+  var trianglePoints = x_pos + ' '             + y_pos + ', ' 
+                    + (x_pos - tWidth)  + ' ' + (y_pos - tHeight) + ', ' 
+                    + (x_pos + tWidth ) + ' ' + (y_pos - tHeight )+ ', ' 
+                    + x_pos + ' '              + y_pos;
+
+  svg.append('polyline')
+      .attr('points', trianglePoints)
+      .style('stroke', colormap[d.character])
+      .style('fill', colormap[d.character])
+      .on("mouseover", function(d) { //hooverding 
+          tooltip.transition()
+               .duration(200)
+               .style("opacity", .9);
+          tooltip.html(d.character + ": " + d.value)
+               .style("left", (d3.event.pageX - 30) + "px")
+               .style("top", (d3.event.pageY - 20) + "px");
+               //.style("fontsize", 8px);
+      })
+      .on("mouseout", function(d) {
+          tooltip.transition()
+               .duration(500)
+               .style("opacity", 0);
+      });
+}
+
+         
+
+//});
+
+
+
 
 </script>
 
