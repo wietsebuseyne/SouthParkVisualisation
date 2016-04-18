@@ -30,8 +30,7 @@ function getSeasonLabelData() {
       seasonStartX += seasonMap[i-1][1];
     }
     seasonInfoData.push({
-      season: endSeason, 
-      size: mapEpisodeSeasonEpisode(startEpisode+shownEpisodes)[1],
+      season: endSeason,
       x: seasonStartX
     });
     return seasonInfoData;
