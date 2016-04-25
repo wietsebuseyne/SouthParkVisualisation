@@ -2,6 +2,8 @@
 Ideas:
   - teken rechthoek rond episode nummer in kleur van #profanities
   - teken rechthoek rond seizoen in kleur van #profanities
+  - Timmy in plaats van Towelie
+  - Mr. Hankey ?
 -->
 
 <!DOCTYPE html>
@@ -14,7 +16,6 @@ Ideas:
         stroke: #000;
         stroke-width: 2px;
       }
-     
      
       @font-face {
   		font-family: SouthParkFont;
@@ -48,6 +49,8 @@ Ideas:
     .unselected {
         -webkit-filter: grayscale(100%); /* Chrome, Safari, Opera */
         filter: grayscale(100%);
+        filter: gray; /* IE6-9 */
+        filter: url(#css_grayscale); /* SVG filter for Chrome */
       }
 
     .hoverInfo {
@@ -76,6 +79,17 @@ Ideas:
         width: 300px;
     }
 
+    .barcodeTooltip {
+      position: absolute;
+      text-align: center;
+      padding: 2px;
+      font: 8px sans-serif;
+      background: white;
+      border: 0px;
+      border-radius: 8px;
+      pointer-events: none;
+    }
+
     .axis path,
     .axis line {
       fill: none;
@@ -94,11 +108,11 @@ Ideas:
       stroke-width: 1.5px;
     }
 
-    .characterLabel, .episodeLabel, .seasonLabel, .deleteButton, .addButton, .word {
+    .characterLabel, .episodeLabel, .seasonLabel, .deleteButton, .addButton, .clickableText {
       cursor: pointer;
     }
 
-    .episodeNav {
+    .episodeNav, .bar {
         cursor: crosshair;
     }
 
@@ -136,7 +150,19 @@ Ideas:
       <p id="characterDescription"></p>
       <div id="characterWordcloud" style="float: left"></div>
       <div id="characterLineChart" style="float: left"></div>
+      <div style="float: left; ">
+        <div id="episodeBarchart" style="position: absolute;"></div>
+      </div>
     </div>
+
+    <!-- SVG filter for Chrome, TODO put this inside the main SVG through javascript -->
+    <svg style="width: 0; height: 0; ">
+      <defs>
+        <filter id="css_grayscale">
+          <feColorMatrix type="saturate" values="0"/>
+        </filter>
+      </defs>
+    </svg>
     <!--<div id="episodeInfo" style="width: 100%; float: left;">
       <h2 id="episodeName"></h2>
       <p id="episodeDescription"></p>
@@ -158,6 +184,13 @@ Ideas:
       ];
       
       var episodes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+      /*
+        0: Character
+        1: Episode
+        2: Season
+      */
+      var secondaryInfo = 0;
 
       var parserCombination = function(d) {
         return {
@@ -209,6 +242,7 @@ Ideas:
           height = (characters.length+2) * gridSize,
           legendElementWidth = gridSize*3,
           buckets = 9,
+          //colors= ["#FFFBEB", "#FFEFB0", "#FFE375" ,"#FFD73A", "#FFCC00", "#FCA002", "#F97404","#F64806", "#F41C08"]  //wit geel rood
           colors = ["#f7fcfc", "#D3E1EA", "#A8C3D5", "#7DA5C0", "#5288AC", "#7A6D82", "#A35259", "#CB372F", "#F41C08"], //blauw rood licht
           //colors = ["#ffffff", "#a0bcce", "#5288ac", "#436c87", "#3d566e", "#2e2f3c", "#382121", "#ad2e21", "#f41c06"], //blauw rood donker
           //colors = ["#FFFFFF", "#FAE2E3", "#F6C5C8", "#F1A8AD", "#ED8B92", "#E96E76", "#E4515B", "#E03440", "#DC1825"], //roze
@@ -354,10 +388,11 @@ Ideas:
           .attr("class", function(d, i) { return d.season & 1 == 1 ? "seasonLabel mono axis axis" : "seasonLabel mono axis-odd"; })
           .attr("x", function(d) { return (d.x * gridSize + gridSize/4);})
           .style("font-family", "SouthParkFont")
-
-          //.attr("x", function(d) { return ((d.x + d.size/2 - 2) * gridSize + 6);})
           .attr("y", 0)
-          .text(function(d) { return "SEASON " + d.season; });
+          .text(function(d) { return "SEASON " + d.season; })
+          .on("click", function(d) {
+            showSeasonInfo(d.season);
+          });
 
           colorScale = d3.scale.quantile()
               .domain(scalePoints)
@@ -391,7 +426,7 @@ Ideas:
 
           // TOOLTIP
           cards.on('mouseover', function(d) {
-            tooltip.select('.character').html(characters[d.character-1]);
+            tooltip.select('.character').html(number_to_character[d.character]);
             tooltip.select('.episode').html(
               function() {
                 if(combination)
@@ -532,8 +567,10 @@ Ideas:
         .attr("class", function(d, i) { return d.season & 1 == 1 ? "seasonLabel mono axis axis" : "seasonLabel mono axis-odd"; })
         .attr("x", function(d) { return (d.x * gridSize + gridSize/4);})
         .style("font-family", "SouthParkFont")
-
-        .text(function(d) { return "SEASON " + d.season; });
+        .text(function(d) { return "SEASON " + d.season; })
+        .on("click", function(d) {
+          showSeasonInfo(d.season);
+        });
     }
     
     function update_displayable_characters(add, character) {
@@ -552,7 +589,7 @@ Ideas:
             excluded_characters.push(characters[i]);
           }
           excluded_characters.sort();
-          characters = [];
+          characters.splice(0, characters.length);
         } else {
           var index = characters.indexOf(character);
           characters.splice(index,1);
@@ -662,7 +699,7 @@ Ideas:
 
       // TOOLTIP
       cards.on('mouseover', function(d) {
-        tooltip.select('.character').html(characters[d.character-1]);
+        tooltip.select('.character').html(number_to_character[d.character]);
         tooltip.select('.episode').html(
           function() {
             if(combination)
@@ -686,6 +723,10 @@ Ideas:
       });
 
       showNavBar();
+      if(secondaryInfo == 1)
+        episodeWordcloud.redraw();
+      else if(secondaryInfo == 2)
+        seasonWordcloud.redraw();
     }
 
     function showExcludedCharacters() {
@@ -891,11 +932,17 @@ Ideas:
       var characterWordCloud = wordcloud().rotations([0])
         .secondarySelection("#characterLineChart");
 
-      function showCharacterInfo(character) {
-        //d3.select("#characterInfo").style("opacity", 1);
-        //d3.select("#episodeInfo").style("opacity", 0);
 
-        d3.select("#characterName").transition()
+      function removeSecondaryGraph() {
+        d3.select("#characterLineChart").selectAll("*").remove();
+        d3.select("#episodeBarchart").selectAll("*").remove();
+      }
+
+      function showCharacterInfo(character) {
+        secondaryInfo = 0;
+        removeSecondaryGraph();
+
+        d3.select("#characterName")
           .text( function(){
           		if(character === "All"){return (character + " characters");} 
           		else{return (character);}
@@ -919,19 +966,22 @@ Ideas:
         );
       }
 
-      var episodeWordcloud = wordcloud().rotations([-60, -30, 0, 30, 60])
-        .secondarySelection("#characterLineChart");
+      var episodeWordcloud = wordcloud().rotations([0])
+        .secondarySelection("#episodeBarchart");
 
 //Episode information
       function showEpisodeInfo(episodeNb) {
-        //d3.select("#characterInfo").style("opacity", 0);
-        //d3.select("#episodeInfo").style("opacity", 1);
+        secondaryInfo = 1;
+        removeSecondaryGraph();
 
         d3.select("#characterName")
           .text(mapEpisodeToNotation(episodeNb) + ": " + episodeInfo[episodeNb-1].title 
             + " (" + episodeInfo[episodeNb-1].airdate + ")");
         d3.select("#characterDescription")
           .text(episodeInfo[episodeNb-1].description);
+
+        d3.select("#characterLineChart").select("*").remove();
+        d3.select("#episodeBarchart").select("*").remove();
 
         d3.tsv("data/episode/" + episodeNb + "_profanities.tsv",
           function(d) {
@@ -942,7 +992,12 @@ Ideas:
           }, function(data) {
             d3.select("#characterWordcloud")
               .datum(data)
-              .call(episodeWordcloud.wordcloudWidth(400).height(200).episode(1));
+              .call(episodeWordcloud
+                .wordcloudWidth(400)
+                .height(200)
+                .characters(characters)
+                .episode(episodeNb)
+              );
           }
         );
 
@@ -966,7 +1021,41 @@ Ideas:
         );*/
       }
 
+      var seasonWordcloud = wordcloud().rotations([0])
+        .secondarySelection("#characterLineChart");
 
+      function showSeasonInfo(season, word) {
+        secondaryInfo = 2;
+        removeSecondaryGraph();
+        d3.select("#characterName")
+          .text("Season " + season);
+        d3.select("#characterDescription")
+          .text("");
+
+        d3.tsv("data/season/" + season + "_wordcloud.tsv",
+          function(d) {
+            return {
+              text: d.word,
+              count: +d.count
+            };
+          }, function(data) {
+            if(word != undefined)
+              w = [word]
+            else
+              w = seasonWordcloud.shownWords();
+            d3.select("#characterWordcloud")
+              .datum(data)
+              .call(seasonWordcloud
+                //.wordcloudWidth(400)
+                .height(300)
+                .characters(characters)
+                .season(season)
+                .shownWords(w)
+              );
+          }
+        );
+
+      }
 
     // Initiates the nav bar and heatmap
     nav(datasets[0].dataset, datasets[0].parser);

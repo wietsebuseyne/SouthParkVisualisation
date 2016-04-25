@@ -18,7 +18,7 @@ function getSeasonLabelData() {
       endSeason = mapEpisodeSeasonEpisode(startEpisode+shownEpisodes)[0];
     var seasonInfoData = [];
     var sizeFirstSeason = seasonMap[startSeason-1][1] - mapEpisodeSeasonEpisode(startEpisode)[1];
-    if(sizeFirstSeason > 3)
+    if(sizeFirstSeason > 4)
       seasonInfoData.push({
         season: startSeason, 
         size: sizeFirstSeason,
