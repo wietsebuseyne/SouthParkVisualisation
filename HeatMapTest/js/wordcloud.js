@@ -103,6 +103,13 @@ function wordcloud() {
   var profanityColormap = {};
 
   function draw(words) {
+    if(isEpisodeWordcloud()) {
+      shownWords = [];
+      words.forEach(function(d) {
+        shownWords.push(d.text);
+      });
+    }
+
     var cloud = g.selectAll(".word").data(words);
 
     shownWords.forEach(function(w) {
@@ -140,7 +147,13 @@ function wordcloud() {
             barcodeGraph.toggle(d.text);
             wordShown[d.text] = !wordShown[d.text];
 
-            if(wordShown(d.text))
+            var index = shownWords.indexOf(d.text);
+            if(index == -1)
+              shownWords.push(d.text);
+            else
+              shownWords.splice(index, 1);
+
+            if(isWordShown(d.text))
               d3.select(this).attr("class", "word clickableText");
             else
               d3.select(this).attr("class", "word unselected clickableText");
