@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <title>South Park Visualisation</title>
+
+    <!-- Bootstrap Core CSS -->
+    <link href="css/bootstrap.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <link href="css/one-page-wonder.css" rel="stylesheet">
+
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+        <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+        <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+	
+	<script>window.jQuery || document.write('<script src="js/jquery.js">\x3C/script>')</script>
+	<script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+	<script src="js/bootstrap.js"></script>
+	<script src="js/main.js"></script>
+	<style>
+		.first_div_holder {
+			float: left;
+			width: 750px;
+		}
+		
+		.second_div_holder {
+			float: left;
+			width: 750px;
+		}
+		
+		.third_div_holder {
+			float: left;
+			width: 750px;
+		}
+		
+		.nav_bar {
+			float: left;
+			width: 750px;
+			height: 65px;
+			margin: 0px;
+			background: url('images/main_menu.png') no-repeat 0 0;
+		}
+
+		.added_character {
+			float: left;
+			width: 100px;
+			height: 265px;
+			margin: 0px;
+			background: url('images/main_menu.png') no-repeat 0 bottom;
+		}
+
+		.recs {
+			float: left;
+			width: 465px;
+			height: 265px;
+			margin: 0px;
+			background: url('images/recs.png') no-repeat right bottom;
+		}
+		
+		.excluded_character {
+			float: left;
+			width: 185px;
+			height: 265px;
+			margin: 0px;
+			background: url('images/excluded_characters.png') no-repeat right bottom;
+		}
+
+		.character_wordle {
+			float: left;
+			padding-left: 90px;
+			width: 425px;
+			height: 271px;
+			margin: 0px;
+			background: url('images/character_info.jpg') no-repeat 0 0;
+		}
+		
+		.character_linechart {
+			float: left;
+			padding-left: 90px;
+			width: 300px;
+			height: 271px;
+			margin: 0px;
+			background: url('images/character_info.jpg') no-repeat right 0;
+		}
+		
+		.episode_info {
+			float: left;
+			width: 750px;
+			height: 40px;
+			margin: 0px;
+			background: url('images/episode_info.png') no-repeat 0 0;
+		}
+		
+		.episode_wordle {
+			float: left;
+			width: 310px;
+			height: 147px;
+			margin: 0px;
+			background: url('images/episode_info.png') no-repeat 0 bottom;
+		}
+		
+		.episode_barchart {
+			float: left;
+			padding-left: 90px;
+			width: 440px;
+			height: 147px;
+			margin: 0px;
+			background: url('images/episode_info.png') no-repeat right bottom;
+		}
+	</style>
+</head>
+
+<body>
+
+    <!-- Navigation -->
+    <nav class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+        <div class="container">
+            <!-- Brand and toggle get grouped for better mobile display -->
+            <div class="navbar-header">
+                <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1">
+                    <span class="sr-only">Toggle navigation</span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                </button>
+                <a class="navbar-brand" href="#">South Park Visualisation</a>
+            </div>
+            <!-- Collect the nav links, forms, and other content for toggling -->
+            <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+                <ul class="nav navbar-nav">
+                    <li>
+                        <a href="#seasons-info">Seasons Info</a>
+                    </li>
+                    <li>
+                        <a href="#character-info">Character Info</a>
+                    </li>
+                    <li>
+                        <a href="#episode-info">Episode Info</a>
+                    </li>
+                </ul>
+            </div>
+            <!-- /.navbar-collapse -->
+        </div>
+        <!-- /.container -->
+    </nav>
+
+    <!-- Full Width Image Header -->
+    <header class="header-image">
+        <div class="headline">
+            <div class="container">
+                <h2>South Park Visualisation</h2>
+            </div>
+        </div>
+    </header>
+
+    <!-- Page Content -->
+    <div class="container">
+
+        <hr class="featurette-divider">
+
+        <!-- First Featurette -->
+        <div class="featurette" id="seasons-info">
+			<div class="first_div_holder pull-right">
+				<div class="thumbnail pull-right">
+					<div class="nav_bar">
+						<div class="caption">
+							<p>
+								A horizonal scrollview to scroll through the 18 South Park seasons. 
+							</p>
+						</div>
+					</div>
+				</div>
+				<div class="added_character">
+					<div class="thumbnail">
+						<div class="caption">
+							<p>
+								The selected characters for which the data is visualised. Each character is clickable, the subsequent visualisation can be found in <a href="#character-info" style="color:white;">Character Info</a>.
+							</p>
+						</div>
+						<div class="added_character"></div>
+					</div>
+				</div>
+				<div class="excluded_character pull-right">
+					<div class="thumbnail">
+						<div class="caption">
+							<p>
+								The excluded characters for which the data is not visualised. These can be added to the visualisation by clicking the plus signs.
+							</p>
+						</div>
+						<div class="excluded_character"></div>
+					</div>
+				</div>
+				<div class="thumbnail pull-right">
+					<div class="recs">
+						<div class="caption">
+							<p>
+								An enlargement of the squares selected from the horizontal scrollview. The size of a square corresponds to a character's share in spoken words in an episode. The color of a square corresponds to 
+								a character's amount of spoken profanities per one thousand words. Episode numbers are clickable, the subsequent visualisation can be found in <a href="#episode-info" style="color:white;">Episode Info</a>.
+							</p>
+						</div>
+					</div>
+				</div>
+			</div>
+            <h2 class="featurette-heading" style="margin-top:0;">Main View <span class="text-muted">Seasons Info</span></h2>
+            <p class="lead">The main view of the South Park visualisation. This view represents the share of each individual character in spoken words and profanities over successive episodes, selected by the selector in the navigation bar at the top. </p>
+        </div>
+
+        <hr class="featurette-divider">
+
+        <!-- Second Featurette -->
+        <div class="featurette" id="character-info">
+			<div class="second_div_holder pull-left">
+				<div class="thumbnail pull-left">
+					<div class="character_wordle">
+						<div class="caption">
+							<p>
+								A wordle of the most popular profanities spoken by the selected character over all seasons. Words in the wordle are clickable and will be visualised in the adjoining linechart.
+							</p>
+						</div>
+					</div>
+				</div>
+				<div class="thumbnail pull-left">
+					<div class="character_linechart">
+						<div class="caption">
+							<p>
+								A linechart which visualises the selected profanities over all seasons in the wordle.
+							</p>
+						</div>
+					</div>
+				</div>
+			</div>
+            <h2 class="featurette-heading" style="margin-top:0;">Detailed View <span class="text-muted">Character Info</span></h2>
+            <p class="lead">A detailed view of a character selected in the <a href="#season-info" style="color:black;">main view</a>. It sums up the most used profanities of the character and represents the evolution throughout all seasons.</p>
+        </div>
+
+        <hr class="featurette-divider">
+
+        <!-- Third Featurette -->
+        <div class="featurette" id="episode-info">
+            <div class="third_div_holder pull-right">
+				<div class="thumbnail pull-right">
+					<div class="episode_info">
+						<div class="caption">
+							<p>
+								The title & the description of the selected episode, which can be watched on the South Park studios website by clicking the title.
+							</p>
+						</div>
+					</div>
+				</div>
+				<div class="episode_wordle">
+					<div class="thumbnail">
+						<div class="caption">
+							<p>
+								A wordle of the most popular profanities spoken in the selected episode. Words in the wordle are clickable and will be visualised in the adjoining barchart.
+							</p>
+						</div>
+						<div class="episode_wordle"></div>
+					</div>
+				</div>
+				<div class="thumbnail pull-right">
+					<div class="episode_barchart">
+						<div class="caption">
+							<p>
+								The barchart visualises the script of the selected episode. A color corresponds to one specific character present in the selection in <a href="#season-info" style="color:white;">Seasons Info</a>.
+								The script of the selected episode can be read by hovering the barchart. The triangles at the top of the barchart indicate the selected profanities in the adjoining wordle.
+							</p>
+						</div>
+					</div>
+				</div>
+			</div>
+            <h2 class="featurette-heading" style="margin-top:0;">Detailed View <span class="text-muted">Episode Info</span></h2>
+            <p class="lead">A detailed view of an episode selected in the <a href="#season-info" style="color:black;">main view</a>. It sums up the most used profanities in the episode and visualises the script.</p>
+			<br/><br/>
+			<a class="btn btn-primary" href="visualisation/index.html" style="width: 30%; text-align: center; display: block; margin: 0 auto;">Go to the visualisation</a>
+        </div>
+
+		<hr class="featurette-divider-small">
+		
+		<footer>
+			<footer class="text-">
+				<div class="row">
+					<div class="col-lg-12">
+						Disclaimer: this visualisation contains vocabulary that may be disturbing or inappropriate, we do not wish nor intend to offend anyone or be provocative in any manner. <br/><br/> 
+						Copyright &copy; Ex Machina 2016
+					</div>
+				</div>
+			</footer>
+        </footer>
+    </div>
+    <!-- /.container -->
+
+    <!-- jQuery -->
+    <script src="js/jquery.js"></script>
+
+    <!-- Bootstrap Core JavaScript -->
+    <script src="js/bootstrap.min.js"></script>
+
+</body>
+
+</html>
