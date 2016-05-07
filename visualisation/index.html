@@ -1,0 +1,1239 @@
+<!--
+Ideas:
+  - teken rechthoek rond episode nummer in kleur van #profanities
+  - teken rechthoek rond seizoen in kleur van #profanities
+  - Timmy in plaats van Towelie
+  - Mr. Hankey ?
+-->
+
+<!DOCTYPE html>
+<meta charset="utf-8">
+<html>
+  <head>
+    <title>South Park Text Analysis</title>
+    <style>
+      rect.navigationRectangle {
+        stroke: #000;
+        stroke-width: 2px;
+      }
+     
+      @font-face {
+  		font-family: SouthParkFont;
+  		src: url('fonts/couture-bld.otf'); 
+  	   }
+  	   @font-face {
+  		font-family: SouthParkFontB;
+ 		src: url('fonts/southpark.ttf'); 
+  	   }
+  	   @font-face {
+  		font-family: myLightFont;
+ 		src: url('fonts/GraublauSlab-Light.otf');
+  	   }
+
+      rect.bordered {
+        stroke: #555;
+        stroke-width:1px;
+      }
+
+      text.mono {
+        font-size: 11pt;
+        /*font-family: Consolas, courier; */
+        font-family: myLightFont, sans-serif;
+        fill: #000;
+      }
+
+      text.axis-odd {
+        fill: #888;
+      }
+
+    .unselected {
+        -webkit-filter: grayscale(100%); /* Chrome, Safari, Opera */
+        filter: grayscale(100%);
+        filter: gray; /* IE6-9 */
+        filter: url(#css_grayscale); /* SVG filter for Chrome */
+      }
+
+    .hoverInfo {
+        background: #eee;
+        box-shadow: 0 0 5px #999999;
+        color: #333;
+        display: none;
+        font-family: myLightFont, sans-serif;
+        font-size: 12px;
+        position: absolute;
+        text-align: center;
+        z-index: 10;
+    }
+
+    .hoverInfo.tiny {
+        left: 130px;
+        padding: 3px;
+        top: 95px;
+        width: 90px;
+        opacity: 0.8;
+    }
+
+    .hoverInfo.small {
+        left: 130px;
+        padding: 10px;
+        top: 95px;
+        width: 100px;
+    }
+
+    .hoverInfo.big {
+        left: 130px;
+        padding: 10px;
+        top: 95px;
+        width: 300px;
+    }
+
+    .barcodeTooltip {
+      position: absolute;
+      text-align: center;
+      padding: 2px;
+      font: 8px sans-serif;
+      background: white;
+      border: 0px;
+      border-radius: 8px;
+      pointer-events: none;
+    }
+
+    .axis path,
+    .axis line {
+      fill: none;
+      stroke: #000;
+      shape-rendering: crispEdges;
+    }
+
+    .axis text {
+       font-family: myLightFont, sans-serif;
+       font-size: 10px;
+
+}
+    .line {
+      fill: none;
+      stroke: steelblue;
+      stroke-width: 1.5px;
+    }
+
+    .characterLabel, .episodeLabel, .seasonLabel, .deleteButton, .addButton, .clickableText {
+      cursor: pointer;
+    }
+
+    .episodeNav, .bar {
+        cursor: crosshair;
+    }
+
+    p, h2 {
+      margin: 0px;
+      font-family: "myLightFont";
+    }
+
+
+    </style>
+    <script src="js/d3.v3.min.js"></script>
+    <script src="js/c3/c3.min.js"></script>
+
+    <script src="js/cloud.min.js"></script>
+    <script src="js/functions.js"></script>
+    <script src="js/multiline.js"></script>
+    <script src="js/linechart.js"></script>
+    <script src="js/wordcloud.js"></script>
+    <script src="js/barcode.js"></script>
+
+    <link rel="stylesheet" type="text/css" href="css/multiline.css">
+    <link rel="stylesheet" type="text/css" href="js/c3/c3.css">
+     <!-- Bootstrap -->
+    <!--<link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">-->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js"></script>
+    <script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+  </head>
+  <body>
+  <a href="../index.html"><img src="Help-icon.png" style="width: 10px; height: 10px; float:right;"/></a>
+  <div id="nav" style="width: 100%; display: block; margin: 0 auto; padding-bottom: 0.5%;"></div>
+    <div id="chart" style="float: left;"></div>
+  <div id="sidebar" style="width: 200px; float: left; padding-left: 5px;"></div>
+    <div id="dataset-picker" class="btn-group" role="group" style="width: auto; clear: both; float: left;"></div>
+    <div id="characterInfo" style="width: 100%; float: left;">
+      <h2 id="characterName"></h2>
+      <p id="characterDescription"></p>
+      <div id="characterWordcloud" style="float: left"></div>
+      <div id="characterLineChart" style="float: left"></div>
+      <div style="float: left; ">
+        <div id="episodeBarchart" style="position: absolute;">
+          <div id="barchartLegend"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SVG filter for Chrome, TODO put this inside the main SVG through javascript -->
+    <svg style="width: 0; height: 0; ">
+      <defs>
+        <filter id="css_grayscale">
+          <feColorMatrix type="saturate" values="0"/>
+        </filter>
+      </defs>
+    </svg>
+    <!--<div id="episodeInfo" style="width: 100%; float: left;">
+      <h2 id="episodeName"></h2>
+      <p id="episodeDescription"></p>
+      <div id="episodeWordcloud" style="float: left"></div>
+      <div id="episodeBarchart" style="float: left"></div>
+    </div>-->
+    <script type="text/javascript">
+
+    //TODO switching dataset inconsistencies
+
+    var seasonMap =
+      [
+        [1,13],  [2,18],  [3,17],
+        [4,17],  [5,14],  [6,17],
+        [7,15],  [8,14],  [9,14],
+        [10,14], [11,14], [12,14],
+        [13,14], [14,14], [15,14],
+        [16,14], [17,10], [18,10]
+      ];
+      
+      var episodes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+      /*
+        0: Character
+        1: Episode
+        2: Season
+      */
+      var secondaryInfo = 0;
+
+      var parserCombination = function(d) {
+        return {
+          character: +d.character,
+          episode: +d.episode,
+          words: +d.words,
+          value: +d.profanities
+        };
+      };
+
+      var parserSingle = function(d) {
+        if(+d.character > 0)
+        return {
+          character: +d.character,
+          episode: +d.episode,
+          value: +d.value
+        };
+        else
+          return null;
+      };
+
+      /*
+            var characters = ["Cartman", "Kyle", "Stan", "Kenny", "Butters", "Chef", "Randy", "Wendy", "Mr. Garrison", "Clyde", "Craig", "All"],
+      excluded_characters = [];
+      number_to_character = {2: "Cartman", 3:  "Kyle", 4: "Stan", 5: "Kenny", 6: "Butters", 7: "Chef", 8: "Randy", 9: "Wendy", 10: "Mr. Garrison", 11: "Clyde", 12: "Craig", 1: "All"},
+      character_to_position = {"All": 1, "Cartman": 2, "Kyle": 3, "Stan": 4, "Kenny": 5, "Butters": 6, "Chef": 7, "Randy": 8, "Wendy": 9, "Mr. Garrison": 10, "Clyde": 11, "Craig": 12},
+      */
+
+      var characters = [
+        "Cartman", "Kyle", "Stan", "Kenny", "Mr. Garrison", "Chef", "Butters", "Randy", "Wendy", "All"],
+      excluded_characters = ["Bebe", "Clyde", "Craig", "Ike", "Jesus", "Jimmy", "Mr. Mackey", "Timmy", "Token", "Towelie", "Sharon", "Jimbo", "Satan", "Linda", "Gerald", "Sheila", "Announcer", "Narrator"
+        , "Liane", "Stephen", "Principal Victoria", "Mayor"];
+      excluded_characters.sort();
+      character_to_position = {
+        "Cartman": 1, "Kyle": 2, "Stan": 3, "Kenny": 4, "Butters": 5, "Chef": 6, "Randy": 7, "Wendy": 8, 
+        "Mr. Garrison": 9, "Clyde": 10, "Craig": 11, "Mr. Mackey": 12, "Token": 13, "Ike": 14, "Bebe": 15, 
+        "Jesus": 16, "Towelie": 17, "Timmy": 18, "Jimmy": 19, "Sharon": 20, "Jimbo": 21, "Satan": 22, 
+        "Linda": 23, "Gerald": 24, "Sheila": 25, "Announcer": 26, "Narrator": 27, "Liane": 28, "Stephen": 29, 
+        "Principal Victoria": 30, "Mayor": 31, "All": 32};
+      var number_to_character = {};
+      ["Cartman", "Kyle", "Stan", "Kenny", "Mr. Garrison", "Chef", "Butters", "Randy", "Wendy", "Clyde", "Craig", "Mr. Mackey", "Token", "Ike", "Bebe", "Jesus", "Towelie", "Timmy", "Jimmy", "Sharon", 
+        "Jimbo", "Satan", "Linda", "Gerald", "Sheila", "Announcer", "Narrator", "Liane", "Stephen", 
+        "Principal Victoria", "Mayor", "All"].forEach(function(d) {
+        number_to_character[character_to_position[d]] = d
+      });
+        //{1: "Cartman", 2:  "Kyle", 3: "Stan", 4: "Kenny", 5: "Butters", 6: "Chef", 7: "Randy", 8: "Wendy", 9: "Mr. Garrison", 10: "Clyde", 11: "Craig", 18: "All"}
+      newest_data = [];
+          margin = { top: 20, right: 0, bottom: 30, left: 120, sidebar: 50 },
+          sidebarWidth = 200,
+          startEpisode = 0,
+          gridSize = 20,
+          shownEpisodes = Math.round(((window.innerWidth - sidebarWidth)/gridSize/1.5));
+
+      if(shownEpisodes % 2 == 1)
+        shownEpisodes += 1;
+
+      navTileSize = gridSize*shownEpisodes/episodes.length,
+          width = gridSize*shownEpisodes,
+          height = (characters.length+2) * gridSize,
+          legendElementWidth = gridSize*2,
+          buckets = 9,
+          //colors= ["#FFFBEB", "#FFEFB0", "#FFE375" ,"#FFD73A", "#FFCC00", "#FCA002", "#F97404","#F64806", "#F41C08"]  //wit geel rood
+          colors = ["#f7fcfc", "#D3E1EA", "#A8C3D5", "#7DA5C0", "#5288AC", "#7A6D82", "#A35259", "#CB372F", "#F41C08"], //blauw rood licht
+          //colors = ["#ffffff", "#a0bcce", "#5288ac", "#436c87", "#3d566e", "#2e2f3c", "#382121", "#ad2e21", "#f41c06"], //blauw rood donker
+          //colors = ["#FFFFFF", "#FAE2E3", "#F6C5C8", "#F1A8AD", "#ED8B92", "#E96E76", "#E4515B", "#E03440", "#DC1825"], //roze
+          //colors = ["#ffffe5","#fff7bc","#fee391","#fec44f","#fe9929","#ec7014","#cc4c02","#993404","#662506"], //geel
+          datasets = [
+            {dataset:"data/combination.tsv", scale:[0, 5, 10, 15, 20, 30, 40, 80, 100, 1000], parser:parserCombination},
+            {dataset:"data/all_words.tsv", scale:[0, 1, 2, 5, 10, 20, 30, 40, 50, 100], parser:parserSingle},
+            {dataset:"data/profanities.tsv", scale:[0, 5, 10, 15, 20, 30, 40, 80, 100, 1000], parser:parserSingle}
+          ],
+          combination = true;
+    var scalePoints = datasets[0].scale;
+    var colorScale = d3.scale.quantile()
+            .domain(scalePoints)
+            .range(colors);
+
+    d3.select("#characterInfo").attr("width", width + margin.left + margin.right);
+      
+      var svg = d3.select("#chart").append("svg")
+      .attr("float", "right")
+          .attr("width", window.innerWidth - sidebarWidth - margin.sidebar)
+          //.attr("height", "100%")
+      .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+      .attr("preserveAspectRatio", "xMinYMin meet")
+          .append("g")
+          .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+      /*var svgNav = d3.select("#nav").append("svg")
+          .attr("width", "100%")
+          .attr("height", "100%")
+      .attr("viewBox", "0 0 " + ((navTileSize*episodes.length)) + " " + (navTileSize * characters.length + 4))
+      .attr("preserveAspectRatio", "xMidYMin meet")
+          .append("g");
+
+      /*var navRect = svgNav.append("rect")
+            .attr("x", 1)
+            .attr("y", 1)
+            .attr("fill-opacity", 0.0)
+            .attr("width", navTileSize * (shownEpisodes - 1))
+            .attr("height", navTileSize * characters.length+2)
+            .attr("class", "navigationRectangle");*/
+
+      var characterLabels = svg.selectAll(".characterLabel")
+          .data(characters)
+          .enter().append("text")
+            .text(function (d) { return d; })
+            .attr("x", -gridSize)
+            .attr("y", function (d, i) { return (i+1) * gridSize; })
+            .style("text-anchor", "end")
+            .attr("transform", "translate(-6," + gridSize / 1.5 + ")")
+            .attr("class", "characterLabel mono axis")
+            .on("click", function(c,i) {
+              showCharacterInfo(c);
+            });
+
+      var averages = [];
+      d3.tsv("data/profanities_average.tsv",
+        function(d) {
+          var words = +d.words == 100 ? 30 : +d.words;
+          return {
+            character: d.character,
+            words: words,
+            profanities: +d.profanities,
+            profanities2: +d.profanities2
+          }
+        },
+        function(data) {
+          data.forEach(function(d) {
+            averages[character_to_position[d.character]] = d;
+          });
+          showAverages();
+        });
+     /*var characterAvg = svg.selectAll(".characterAvg")
+        .data
+
+                cards.enter().append("rect")
+              .attr("class", "episode bordered")
+              .style("fill", colors[0]);
+
+          var cardsTrans = cards.transition().duration(0)
+              .style("fill", function(d) { return colorScale(d.value); });
+          if(combination)
+            cardsTrans
+              .attr("x", function(d) {
+                return (d.episode - 1) * gridSize + (d.words == 0 ? gridSize / 2 : marginScale(d.words));
+              })
+              .attr("y", function(d) {
+                return (characters.indexOf(number_to_character[d.character]) + 1) * gridSize + (d.words == 0 ? gridSize / 2 : marginScale(d.words));
+              })
+              .attr("width", gridSizeScale)
+              .attr("height", gridSizeScale);
+          else
+            cardsTrans
+              .attr("x", function(d) { return (d.episode - 1) * gridSize; })
+              .attr("y", function(d) { return d.character * gridSize; })
+              .attr("width", gridSize)
+              .attr("height", gridSize);
+
+          // TOOLTIP
+          cards.on('mouseover', function(d) {
+            tooltip.select('.character').html(number_to_character[d.character]);
+            tooltip.select('.episode').html(
+              function() {
+                if(combination)
+                  if(number_to_character[d.character] === "All")
+                    return mapEpisodeToNotation(d.episode+startEpisode) + "</b><br/>Profanities: <b>" + d.value + "‰</b>";
+                  else
+                    return mapEpisodeToNotation(d.episode+startEpisode) + "<br/>Words: <b>" + d.words + "%</b><br/>Profanities: <b>" + d.value + "‰</b>";
+                else
+                  return mapEpisodeToNotation(d.episode+startEpisode) + ": <b>" + d.value + "</b>";
+              });
+            tooltip.style('display', 'block');
+          });
+
+          cards.on('mouseout', function() {
+            tooltip.style('display', 'none');
+          });
+
+          cards.on('mousemove', function(d) {
+            tooltip.style('top', (d3.event.layerY + 10) + 'px')
+              .style('left', function() {
+                  var x = (d3.event.layerX + 10)
+                  if(x + 100 > window.innerWidth - sidebarWidth)
+                    x = window.innerWidth - sidebarWidth - 100;
+                  return x + 'px';
+                });
+          });*/
+    
+    var deleteCharacterButtons = svg.selectAll(".deleteButton")
+      .data(characters)
+      .enter().append("path")
+            .style("fill", "red")
+      .style("stroke","white")
+      .style("stroke-width","2")
+            .attr("transform", function (d, i) { return "translate(" + (-margin.left + 5) + "," + (((i+1) * gridSize) +  (gridSize / 2)) + ")rotate(45)"; })
+      .attr("class", "deleteButton")
+      .attr("d", d3.svg.symbol().size(100).type('cross'))
+      .on("click", function(d, i) {
+        update_displayable_characters(false, d);
+      });
+
+    var deleteAllButton = svg
+        .append("path")
+        .style("fill", "red")
+        .style("stroke","white")
+        .style("stroke-width","2")
+        .attr("class", "deleteButton")
+        .attr("transform", "translate(-115,10)rotate(45)")
+        .attr("d", d3.svg.symbol().size(100).type('cross'))
+        .on("click", function(d) {
+          update_displayable_characters(false, "*");
+        });
+
+    var episodeTooltip = d3.select("#chart")
+          .append("div")
+          .attr("class", "hoverInfo big");
+    episodeTooltip.append('div')
+      .attr('class', 'title');
+    episodeTooltip.append('div')
+      .attr('class', 'airdate');
+    episodeTooltip.append('div')
+      .attr('class', 'description');
+
+    // TOOLTIP
+    var tooltip = d3.select('#chart')
+          .append('div')
+          .attr('class', 'hoverInfo small');
+        tooltip.append('div')
+          .attr('class', 'character');
+        tooltip.append('div')
+          .attr('class', 'episode');
+
+    var episodeInfo;
+
+    d3.tsv("data/episodes.tsv", 
+      function (d) {
+        return {
+          episode: +d.episode,
+          title: d.title,
+          airdate: d.airdate,
+          description: d.description
+        };
+      }, function(error, data) {
+        episodeInfo = data;
+      }
+    );
+
+      var marginScale = d3.scale.linear()
+          .domain([0, 40])
+          .range([gridSize/3, 0]);
+
+      function gridSizeScale(d) { 
+        if (d.words == 0)
+          return 1;
+        return gridSize - marginScale(d.words)*2; 
+      }
+
+      function heatmapChart(tsvFile, parseFunction) {
+        d3.tsv(tsvFile, parseFunction, heatmapDrawer);
+      };
+
+      var nav_data;
+
+      function showAverages() {
+        var charData = [];
+        characters.forEach(function(d) {
+          charData.push(averages[character_to_position[d]]);
+        });
+        svg.selectAll(".characterAvg").remove();
+        var characterAvg = svg.selectAll(".characterAvg")
+          .data(charData)
+          .enter().append("rect")
+          .attr("class", "characterAvg bordered")
+          .style("fill", function(d) { return colorScale(d.profanities); })
+          .attr("width", gridSizeScale)
+          .attr("height", gridSizeScale)
+          .attr("x", function(d) {
+              return marginScale(d.words) - gridSize;
+            })
+          .attr("y", function(d) {
+            return (characters.indexOf(d.character) + 1) * gridSize + marginScale(d.words);
+          });
+        characterAvg.on('mouseover', function(d) {
+          tooltip.select('.character').html(d.character + "(avg)");
+          tooltip.select('.episode').html(
+            function() {
+              if(d.character === "All")
+                return "Profanities: <b>" + d.profanities + "‰</b>";
+              else
+                return "Words: <b>" + d.words + "%</b><br/>Profanities: <b>" 
+                  + d.profanities + "‰</b>";
+            });
+          tooltip.style('display', 'block');
+        });
+
+        characterAvg.on('mouseout', function() {
+          tooltip.style('display', 'none');
+        });
+
+        characterAvg.on('mousemove', function(d) {
+          tooltip.style('top', (d3.event.layerY + 10) + 'px')
+            .style('left', function() {
+                var x = (d3.event.layerX + 10)
+                if(x + 100 > window.innerWidth - sidebarWidth)
+                  x = window.innerWidth - sidebarWidth - 100;
+                return x + 'px';
+              });
+        });
+      }
+
+      function heatmapDrawer(error, data) {
+        //Heatmap
+        newData = data.slice(startEpisode, (startEpisode+shownEpisodes)*(characters.length+excluded_characters.length));
+        newest_data = newData;
+
+        var new_data = [];
+        newData.forEach(function(d){
+          if(characters.indexOf(number_to_character[d.character]) != - 1)
+            new_data.push(d);
+        });
+
+        //Show season information
+        var seasonLabels = svg.selectAll(".seasonLabel").data(getSeasonLabelData());
+        seasonLabels.enter().append("text")
+          .attr("class", function(d, i) { return d.season & 1 == 1 ? "seasonLabel mono axis axis" : "seasonLabel mono axis-odd"; })
+          .attr("x", function(d) { return (d.x * gridSize + gridSize/4);})
+          .style("font-family", "SouthParkFont")
+          .attr("y", 0)
+          .text(function(d) { return "SEASON " + d.season; })
+          .on("click", function(d) {
+            showSeasonInfo(d.season);
+          });
+
+
+          var cards = svg.selectAll(".episode")
+              .data(new_data);
+
+          cards.enter().append("rect")
+              .attr("class", "episode bordered")
+              .style("fill", colors[0]);
+
+          var cardsTrans = cards.transition().duration(0)
+              .style("fill", function(d) { return colorScale(d.value); });
+          if(combination)
+            cardsTrans
+              .attr("x", function(d) {
+                return (d.episode - 1) * gridSize + (d.words == 0 ? gridSize / 2 : marginScale(d.words));
+              })
+              .attr("y", function(d) {
+                return (characters.indexOf(number_to_character[d.character]) + 1) * gridSize + (d.words == 0 ? gridSize / 2 : marginScale(d.words));
+              })
+              .attr("width", gridSizeScale)
+              .attr("height", gridSizeScale);
+          else
+            cardsTrans
+              .attr("x", function(d) { return (d.episode - 1) * gridSize; })
+              .attr("y", function(d) { return d.character * gridSize; })
+              .attr("width", gridSize)
+              .attr("height", gridSize);
+
+          // TOOLTIP
+          cards.on('mouseover', function(d) {
+            tooltip.select('.character').html(number_to_character[d.character]);
+            tooltip.select('.episode').html(
+              function() {
+                if(combination)
+                  if(number_to_character[d.character] === "All")
+                    return mapEpisodeToNotation(d.episode+startEpisode) + "</b><br/>Profanities: <b>" + d.value + "‰</b>";
+                  else
+                    return mapEpisodeToNotation(d.episode+startEpisode) + "<br/>Words: <b>" + d.words + "%</b><br/>Profanities: <b>" + d.value + "‰</b>";
+                else
+                  return mapEpisodeToNotation(d.episode+startEpisode) + ": <b>" + d.value + "</b>";
+              });
+            tooltip.style('display', 'block');
+          });
+
+          cards.on('mouseout', function() {
+            tooltip.style('display', 'none');
+          });
+
+          cards.on('mousemove', function(d) {
+            tooltip.style('top', (d3.event.layerY + 10) + 'px')
+              .style('left', function() {
+                  var x = (d3.event.layerX + 10)
+                  if(x + 100 > window.innerWidth - sidebarWidth)
+                    x = window.innerWidth - sidebarWidth - 100;
+                  return x + 'px';
+                });
+          });
+
+          //Legend
+
+          svg.selectAll(".legendText").remove();
+          svg.selectAll(".legendColor").remove();
+
+          var legendText = svg.selectAll(".legendText")
+              .data([0].concat(colorScale.quantiles()), function(d) { return d; });
+
+          legendText.enter().append("text")
+            .attr("class", "legendText mono")
+            .attr("x", function(d, i) { return legendElementWidth * i; })
+            .attr("y", height + gridSize/2)
+            .text(function(d) { return "≥ " + Math.round(d); });
+
+          var legendColor = svg.selectAll(".legendColor")
+              .data([0].concat(colorScale.quantiles()), function(d) { return d; });
+
+          legendColor.enter().append("rect")
+            .attr("class", "legendColor")
+            .attr("x", function(d, i) { return legendElementWidth * i; })
+            .attr("y", height - gridSize /2)
+            .attr("width", legendElementWidth)
+            .attr("height", gridSize / 2)
+            .style("fill", function(d, i) { return colors[i]; });
+
+        //Show episode labels
+
+          var episodeLabels = svg.selectAll(".episodeLabel")
+            .data(episodes.slice(startEpisode, startEpisode+shownEpisodes));
+
+          episodeLabels
+            .enter().append("text")
+              .attr("x", function(d, i) { return i * gridSize; })
+              .attr("y", gridSize)
+              .style("text-anchor", "middle")
+              .attr("transform", "translate(" + gridSize / 2 + ", -6)")
+              .attr("class", function(d, i) { return mapEpisodeSeasonEpisode(startEpisode+i+1)[0]%2 == 0 ? "episodeLabel mono axis axis-odd" : "episodeLabel mono axis"; })
+              .text(function(d) { return d; });
+
+          //Episode Tooltips
+          episodeLabels.on('mouseover', function(d, i) {
+            episodeTooltip.select('.title').html( "<b>"+mapEpisodeToNotation(i+startEpisode+1) + ": " + episodeInfo[i+startEpisode].title + "</b>");
+            episodeTooltip.select('.airdate').html("Airdate:" + episodeInfo[i+startEpisode].airdate);
+            episodeTooltip.select('.description').html(episodeInfo[i+startEpisode].description);
+            episodeTooltip.style('display', 'block');
+          });
+
+          episodeLabels.on('mouseout', function() {
+            episodeTooltip.style('display', 'none');
+          });
+
+          episodeLabels.on('mousemove', function() {
+            episodeTooltip.style('top', (d3.event.layerY + 10) + 'px')
+              .style('left', function() {
+                  var x = (d3.event.layerX + 10);
+                  if(x + 300 > window.innerWidth - sidebarWidth)
+                    x = window.innerWidth - sidebarWidth - 300;
+                  return x + 'px';
+                });
+          });
+
+          episodeLabels.on('click', function(d, i) {
+            showEpisodeInfo(startEpisode + i + 1);
+          });
+
+          showExcludedCharacters();
+        };
+
+    function updateHeatMap(data) {
+      //newest_data = data;
+      
+      var new_data = [];
+      data.forEach(function(d){
+        if(characters.indexOf(number_to_character[d.character]) != - 1)
+          new_data.push(d);
+      });
+
+      var cards = svg.selectAll(".episode")
+          .data(new_data);
+      /*cards.attr("class", "episode bordered update");
+      cards.enter().append("rect")
+          .attr("x", function(d) { return (d.episode - 1) * gridSize; })
+          .attr("y", function(d) { return (d.character - 1) * gridSize; })
+          .attr("class", "episode bordered")
+          .attr("width", gridSize)
+          .attr("height", gridSize)
+          .style("fill", colors[0]);*/
+      cards.style("fill", function(d) { return colorScale(d.value); });
+      if(combination)
+        cards
+          .attr("x", function(d) {
+            return (d.episode - 1) * gridSize + (d.words == 0 ? gridSize / 2 : marginScale(d.words));
+          })
+          .attr("y", function(d) {
+            return (characters.indexOf(number_to_character[d.character]) + 1) * gridSize + (d.words == 0 ? gridSize / 2 : marginScale(d.words));
+          })
+          .attr("width", gridSizeScale)
+          .attr("height", gridSizeScale);
+
+      cards.exit().remove();
+
+      var episodeLabels = svg.selectAll(".episodeLabel")
+        .data(episodes.slice(startEpisode, startEpisode+shownEpisodes))
+        .text(function(d) { return d; })
+        .attr("class", function(d, i) { return mapEpisodeSeasonEpisode(startEpisode+i+1)[0]%2 == 0 ? "episodeLabel mono axis axis-odd" : "episodeLabel mono axis"; });;
+
+      svg.selectAll(".seasonLabel").remove();
+      var seasonLabels = svg.selectAll(".seasonLabel")
+        .data(getSeasonLabelData())
+        .enter().append("text")
+        .attr("class", function(d, i) { return d.season & 1 == 1 ? "seasonLabel mono axis axis" : "seasonLabel mono axis-odd"; })
+        .attr("x", function(d) { return (d.x * gridSize + gridSize/4);})
+        .style("font-family", "SouthParkFont")
+        .text(function(d) { return "SEASON " + d.season; })
+        .on("click", function(d) {
+          showSeasonInfo(d.season);
+        });
+    }
+    
+    function update_displayable_characters(add, character) {
+      // Add a character to the heatmap
+      if(add)
+      {
+        var index = excluded_characters.indexOf(character);
+        excluded_characters.splice(index,1);
+        if(characters.indexOf("All") != -1)
+          characters.splice(characters.length-1, 0, character);
+        else
+          characters.push(character);
+      } else {
+        if(character === "*") {
+          for(var i = 0; i < characters.length; i++) {
+            excluded_characters.push(characters[i]);
+          }
+          excluded_characters.sort();
+          characters.splice(0, characters.length);
+        } else {
+          var index = characters.indexOf(character);
+          characters.splice(index,1);
+          excluded_characters.push(character);
+          excluded_characters.sort();
+        }
+      }
+      showAverages();
+
+      //update height of the heatmap
+      height = (characters.length+2) * gridSize; 
+
+      d3.select("#chart").select("svg")
+        .attr("float", "right")
+            .attr("width", window.innerWidth - sidebarWidth - margin.sidebar)
+            //.attr("height", "100%")
+        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+        .attr("preserveAspectRatio", "xMinYMin meet");
+
+      svg.selectAll(".legendText").remove();
+      svg.selectAll(".legendColor").remove();
+
+      var legendText = svg.selectAll(".legendText")
+          .data([0].concat(colorScale.quantiles()), function(d) { return d; });
+
+      legendText.enter().append("text")
+        .attr("class", "legendText mono")
+        .attr("x", function(d, i) { return legendElementWidth * i; })
+        .attr("y", height +  gridSize/2)
+        .text(function(d) { return "≥ " + Math.round(d); });
+
+      var legendColor = svg.selectAll(".legendColor")
+          .data([0].concat(colorScale.quantiles()), function(d) { return d; });
+
+      legendColor.enter().append("rect")
+        .attr("class", "legendColor")
+        .attr("x", function(d, i) { return legendElementWidth * i; })
+        .attr("y", height - gridSize/2)
+        .attr("width", legendElementWidth)
+        .attr("height", gridSize / 2)
+        .style("fill", function(d, i) { return colors[i]; });
+
+      characterLabels.remove();
+      characterLabels = svg.selectAll(".characterLabel")
+        .data(characters)
+        .enter()
+        .append("text")
+        .text(function (d) { if(d == "Principal Victoria") return "Principal"; return d; })
+        .attr("x", -gridSize)
+        .attr("y", function (d, i) { return (i+1) * gridSize; })
+        .style("text-anchor", "end")
+        .attr("transform", "translate(-6," + gridSize / 1.5 + ")")
+        .attr("class", "characterLabel mono axis")
+        .on("click", function(c,i) {
+          showCharacterInfo(c);
+        });
+
+      deleteCharacterButtons.remove();
+      deleteCharacterButtons = svg.selectAll()
+        .data(characters)
+        .enter()
+        .append("path")
+        .style("fill", "red")
+        .style("stroke","white")
+        .style("stroke-width","2")
+        .attr("transform", function (d, i) { 
+          return "translate(" + (-margin.left + 5) + "," + (((i+1) * gridSize) +  (gridSize / 2)) + ")rotate(45)"; })
+        .attr("class", "deleteButton")
+        .attr("d", d3.svg.symbol().size(100).type('cross'))
+        .on("click", function(d, i) {
+          update_displayable_characters(false, d);
+        });
+        
+      showExcludedCharacters();
+
+      // Delete data of characters that are not in 'characters'
+      var new_data = [];
+      newest_data.forEach(function(d){
+        if(characters.indexOf(number_to_character[d.character]) != - 1)
+          new_data.push(d);
+      });
+
+      var cards = svg.selectAll(".episode").remove();
+      
+      cards = svg.selectAll(".episode").data(new_data);
+
+      cards.enter().append("rect")
+        .attr("class", "episode bordered")
+        .style("fill", colors[0]);
+
+      var cardsTrans = cards.transition().duration(0)
+        .style("fill", function(d) { return colorScale(d.value); });
+      if(combination)
+        cardsTrans
+          .attr("x", function(d) {
+            return (d.episode - 1) * gridSize + (d.words == 0 ? gridSize / 2: marginScale(d.words));
+          })
+          .attr("y", function(d) {
+            return (characters.indexOf(number_to_character[d.character]) + 1) * gridSize + (d.words == 0 ? gridSize / 2 : marginScale(d.words));
+          })
+          .attr("width", gridSizeScale)
+          .attr("height", gridSizeScale);
+      else
+        cardsTrans
+          .attr("x", function(d) { return (d.episode - 1) * gridSize; })
+          .attr("y", function(d) { return d.character * gridSize; })
+          .attr("width", gridSize)
+          .attr("height", gridSize);
+
+      // TOOLTIP
+      cards.on('mouseover', function(d) {
+        tooltip.select('.character').html(number_to_character[d.character]);
+        tooltip.select('.episode').html(
+          function() {
+            if(combination)
+              if(number_to_character[d.character] === "All")
+                return mapEpisodeToNotation(d.episode+startEpisode) + "</b><br/>Profanities: <b>" + d.value + "‰</b>";
+              else
+                return mapEpisodeToNotation(d.episode+startEpisode) + "<br/>Words: <b>" + d.words + "%</b><br/>Profanities: <b>" + d.value + "‰</b>";
+            else
+              return mapEpisodeToNotation(d.episode+startEpisode) + ": <b>" + d.value + "</b>";
+          });
+        tooltip.style('display', 'block');
+      });
+
+      cards.on('mouseout', function() {
+        tooltip.style('display', 'none');
+      });
+
+      cards.on('mousemove', function(d) {
+        tooltip.style('top', (d3.event.layerY + 10) + 'px')
+          .style('left', (d3.event.layerX + 10) + 'px');
+      });
+
+      showNavBar();
+      if(secondaryInfo == 1)
+        episodeWordcloud.redraw();
+      else if(secondaryInfo == 2)
+        seasonWordcloud.redraw();
+    }
+
+    function showExcludedCharacters() {
+        var sidebar = d3.select("#sidebar");
+        sidebar.select("svg").remove();
+        var sidebarSVG = sidebar.append("svg")
+          /*.attr("width", "100%")
+          .attr("height", "100%")*/
+          .attr("viewBox", "0 0 " + sidebarWidth + " " + ((Math.ceil(excluded_characters.length/2)+1) * gridSize))
+          //.attr("preserveAspectRatio", "xMinYMin meet")
+          .append("g");
+          
+        sidebarSVG.append("text")
+          .text("Excluded Characters")
+          .style("font-family", "SouthParkFont")
+          .style("font-size", "10pt")
+          .attr("transform", function (d, i) { return "translate(0," + ((i+1) * gridSize + (-2)) + ")"; });;
+        
+        var labelz = sidebarSVG.append("g")
+          .attr("transform", "translate(0,15)")
+          .attr("class", "labelz");
+          
+        labelz.selectAll(".excludedCharacters")
+          .data(excluded_characters)
+          .enter()
+          .append("text")
+          .text(function (d) { if(d == "Principal Victoria") return "Principal"; return d; })
+          .attr("class", "excludedCharacters mono axis")
+          .attr("transform", function (d, i) { 
+            if(i < excluded_characters.length / 2)
+              return "translate(20," + ((i+1) * gridSize) + ")"; 
+            else
+              return "translate(120," + ((i+1-Math.ceil(excluded_characters.length/2)) * gridSize) + ")"; 
+          });
+    
+        labelz.selectAll(".addButton")
+          .data(excluded_characters)
+          .enter().append("path")
+          .style("fill", "green")
+          .style("stroke","white")
+          .style("stroke-width","2")
+          .attr("transform", function (d, i) { 
+            if(i < excluded_characters.length / 2)
+              return "translate(7," + (((i+1) * gridSize) - 5) + ")";
+            else
+              return "translate(107," + (((i+1-Math.ceil(excluded_characters.length/2)) * gridSize) - 5) + ")"; 
+          })
+          .attr("class", "addButton")
+          .attr("d", d3.svg.symbol().size(100).type('cross'))
+          .on("click", function(d, i) {
+            update_displayable_characters(true, d);
+          });
+    }
+
+    function nav(tsvFile, parseFunction) {
+      d3.tsv(tsvFile, parseFunction, drawNavBar);
+    };
+
+    function drawNavBar(error, data) {
+      nav_data = data;
+      showNavBar();
+    }
+
+    function showNavBar() { 
+        var data_copy = [];
+        nav_data.forEach(function(d){
+          if(characters.indexOf(number_to_character[d.character]) != - 1) {
+            data_copy.push(d);
+          }
+        });
+
+        d3.select("#nav").select("svg").remove();
+        var svgNav = d3.select("#nav").append("svg")
+                      .attr("width", "100%")
+                      .attr("height", "100%")
+                  .attr("viewBox", "0 0 " + ((navTileSize*episodes.length)) + " " + (navTileSize * characters.length + 4))
+                  .attr("preserveAspectRatio", "xMidYMin meet")
+                      .append("g");
+
+        var navRect = svgNav.append("rect")
+            .attr("x", 1)
+            .attr("y", 1)
+            .attr("fill-opacity", 0.0)
+            .attr("width", navTileSize * shownEpisodes - 2)
+            .attr("height", navTileSize * characters.length+2)
+            .attr("class", "navigationRectangle");
+
+        var cards = svgNav.selectAll(".episodeNav")
+            .data(data_copy);
+
+        cards.enter().append("rect")
+            .attr("x", function(d) { return (d.episode - 1) * navTileSize; })
+            .attr("y", function(d) { 
+              return (characters.indexOf(number_to_character[d.character])) * navTileSize + 2; })
+            .attr("class", "episodeNav")
+            .attr("width", navTileSize)
+            .attr("height", navTileSize)
+            .style("fill", colors[0]);
+
+        cards.on('mouseover', function(d, i) {
+              //Minimally show 50
+              //var length = characters.length + excluded_characters.length;
+              var toSplice = Math.max(0, Math.min(
+                i - (i % characters.length) - (shownEpisodes/2 * characters.length),
+                data_copy.length - shownEpisodes * characters.length));
+              startEpisode = toSplice / characters.length;
+
+              //Update heatmap with selected data
+              var newData = [];
+              //newData.splice(0, toSplice);
+              for(var ep = 0; ep < shownEpisodes ; ep++) {
+                for(var c = 0; c < characters.length; c++) {
+                  var index = (ep*characters.length)+c;
+                  if(combination)
+                    newData[index] = {
+                      "episode": ep+1,
+                      "character": data_copy[index+toSplice].character,
+                      "words": data_copy[index+toSplice].words,
+                      "value": data_copy[index+toSplice].value
+                    };
+                  else
+                    newData[index] = {
+                      "episode": ep+1,
+                      "character": data_copy[index+toSplice].character,
+                      "value": data_copy[index+toSplice].value
+                    };
+                }
+              }
+              navRect
+                .transition()
+                .duration(0)
+                .attr("x", startEpisode*navTileSize+1);
+
+              updateHeatMap(newData);
+              //heatmapDrawer(null, newData);
+              //Show selection in navigation bar
+              //TODO optimize:
+              /*cards.transition().duration(0).attr("class", function(d) {
+                if(d.episode > startEpisode && d.episode <= startEpisode + shownEpisodes)
+                  return "inScope";
+              });*/
+
+              /*var change = svg.selectAll(".timeLabel")
+                .transition();
+    change
+          .text(function(d) { return d; })
+          .attr("x", function(d, i) { return i * gridSize; })
+          .attr("y", 0)
+          .style("text-anchor", "middle")
+          .attr("transform", "translate(" + gridSize / 2 + ", -6)")
+          .attr("class", function(d, i) { return (((i >= 0 && i < 13) || (i>=31 && i < 41)) ? "timeLabel mono axis axis-odd" : "timeLabel mono axis"); });*/
+              /*var c = svg.selectAll(".episode")
+                .data(data, function(d) {return d.character+':'+d.episode;});
+
+
+                c.enter().append("rect")
+                    .attr("x", function(d) { return (d.episode - 1) * gridSize; })
+                    .attr("y", function(d) { return (d.character - 1) * gridSize; })
+                    .attr("class", "episode bordered")
+                    .attr("width", gridSize)
+                    .attr("height", gridSize)
+                    .style("fill", colors[0]);
+
+              c.transition().duration(1000)
+                    .style("fill", function(d) { return colorScale(d.value); });*/
+            });
+
+        cards.transition()
+            .style("fill", function(d) { return colorScale(d.value); });
+
+        cards.exit().remove();
+
+      }
+
+      //gridSize = 5;
+
+      /*
+      var datasetpicker = d3.select("#dataset-picker").selectAll(".dataset-button")
+        .data(datasets);
+
+      datasetpicker.enter()
+        .append("input")
+        .attr("value", function(d){ return d.dataset; })
+        .attr("type", "button")
+        .attr("class", "dataset-button btn btn-default")
+        .on("click", function(d, i) {
+          combination = i==0;
+          startEpisode = 0;
+          scalePoints = d.scale;
+          heatmapChart(d.dataset, d.parser);
+          nav(d.dataset, d.parser);
+        });
+      */
+
+//Character information
+     /* var profanitiesChart = lineChart()
+        .x(function(d) { return +d.season; })
+        .y(function(d) { return +d.words; });*/
+
+      var characterWordCloud = wordcloud().rotations([0])
+        .secondarySelection("#characterLineChart");
+
+
+      function removeSecondaryGraph() {
+        d3.select("#characterLineChart").selectAll("*").remove();
+        d3.select("#episodeBarchart").selectAll("*").remove();
+      }
+
+      function showCharacterInfo(character) {
+        secondaryInfo = 0;
+        removeSecondaryGraph();
+
+        d3.select("#characterName")
+          .text( function(){
+          		if(character === "All"){return (character + " characters");} 
+          		else{return (character);}
+          	})
+          .style("font-family", "SouthParkFontB")
+          .attr("class", "")
+          .on("click", function() {});;
+
+        d3.select("#characterDescription")
+          .text("");
+
+        d3.tsv("data/character/" + character + "_wordcloud.tsv",
+          function(d) {
+            return {
+              text: d.word,
+              count: +d.count
+            };
+          }, function(data) {
+            d3.select("#characterWordcloud")
+              .datum(data)
+              .call(characterWordCloud.character(character));
+          }
+        );
+      }
+
+      var episodeWordcloud = wordcloud().rotations([0])
+        .secondarySelection("#episodeBarchart");
+
+//Episode information
+      function showEpisodeInfo(episodeNb) {
+        secondaryInfo = 1;
+
+        d3.select("#characterName")
+          .html(mapEpisodeToNotation(episodeNb) + ": " + episodeInfo[episodeNb-1].title 
+            + " (" + episodeInfo[episodeNb-1].airdate + ") &#9658;")
+          .attr("class", "clickableText")
+          .on("click", function() {
+            var win = window.open("http://southpark.cc.com/full-episodes/" + mapEpisodeToNotation(episodeNb), '_blank');
+            win.focus();
+            
+          });
+        d3.select("#characterDescription")
+          .text(episodeInfo[episodeNb-1].description);
+
+        d3.select("#characterLineChart").select("*").remove();
+        d3.select("#episodeBarchart").select("*").remove();
+
+        d3.tsv("data/episode/" + episodeNb + "_profanities.tsv",
+          function(d) {
+            return {
+              text: d.word,
+              count: +d.count
+            };
+          }, function(data) {
+            d3.select("#characterWordcloud")
+              .datum(data)
+              .call(episodeWordcloud
+                .wordcloudWidth(500)
+                .characters(characters)
+                .episode(episodeNb)
+              );
+          }
+        );
+        removeSecondaryGraph();
+
+        /*d3.select("#episodeName")
+          .text(mapEpisodeToNotation(episodeNb) + ": " + episodeInfo[episodeNb-1].title 
+            + " (" + episodeInfo[episodeNb-1].airdate + ")");
+        d3.select("#episodeDescription")
+          .text(episodeInfo[episodeNb-1].description);
+
+        d3.tsv("data/episode/" + episodeNb + "_profanities.tsv",
+          function(d) {
+            return {
+              text: d.word,
+              count: +d.count
+            };
+          }, function(data) {
+            d3.select("#episodeWordcloud")
+              .datum(data)
+              .call(episodeWordcloud);
+          }
+        );*/
+      }
+
+      var seasonWordcloud = wordcloud().rotations([0])
+        .secondarySelection("#characterLineChart");
+
+      function showSeasonInfo(season, word) {
+        secondaryInfo = 2;
+        removeSecondaryGraph();
+        d3.select("#characterName")
+          .text("Season " + season)
+          .attr("class", "")
+          .on("click", function() {});
+        d3.select("#characterDescription")
+          .text("");
+
+        d3.tsv("data/season/" + season + "_wordcloud.tsv",
+          function(d) {
+            return {
+              text: d.word,
+              count: +d.count
+            };
+          }, function(data) {
+            if(word != undefined)
+              w = [word]
+            else
+              w = seasonWordcloud.shownWords();
+            d3.select("#characterWordcloud")
+              .datum(data)
+              .call(seasonWordcloud
+                //.wordcloudWidth(400)
+                .height(300)
+                .characters(characters)
+                .season(season)
+                .shownWords(w)
+              );
+          }
+        );
+
+      }
+
+      document.onkeydown = checkKey;
+
+      function checkKey(e) {
+        var event = e || window.event;
+        if(e.keyCode == '37') {
+          if(secondaryInfo == 1 && episodeWordcloud.episode() > 1)
+            showEpisodeInfo(episodeWordcloud.episode()-1);
+          else if(secondaryInfo == 2 && seasonWordcloud.season() > 1)
+            showSeasonInfo(seasonWordcloud.season()-1);
+        } else if(e.keyCode == '39') {
+          if(secondaryInfo == 1 && episodeWordcloud.episode() < episodeInfo.length)
+            showEpisodeInfo(episodeWordcloud.episode()+1);
+          else if(secondaryInfo == 2 && seasonWordcloud.season() < seasonMap.length)
+            showSeasonInfo(seasonWordcloud.season()+1);
+        } else if (secondaryInfo == 0 && e.keyCode == '38') {
+          var index = characters.indexOf(characterWordCloud.character());
+          if(index > 0)
+            showCharacterInfo(characters[index-1]);
+        } else if (secondaryInfo == 0 && e.keyCode == '40') {
+          var index = characters.indexOf(characterWordCloud.character());
+          if(index < characters.length-1)
+            showCharacterInfo(characters[index+1]);
+        }
+      }
+
+    // Initiates the nav bar and heatmap
+    nav(datasets[0].dataset, datasets[0].parser);
+    heatmapChart(datasets[0].dataset, datasets[0].parser);
+    showCharacterInfo("All"); //dees mag dus weg als jullie dat beter vinden
+
+    </script>
+  </body>
+</html>
