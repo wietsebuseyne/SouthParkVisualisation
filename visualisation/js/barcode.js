@@ -68,7 +68,7 @@ function barcode() {
           .each(function (d) {
             d3.select(this).style('background-color', colormap[d]);
           });
-      d3.select(this).append("br");
+      d3.select(this).append("br").attr("class", "barcodeLegend");
 
       d3.select(this).selectAll("svg").remove();
       var svg = d3.select(this).selectAll("svg").data([data]);
