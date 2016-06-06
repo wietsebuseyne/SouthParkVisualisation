@@ -1,0 +1,20 @@
+{| class="wikitable episodes-table plainrowheaders"
+|- class="header" |
+! style="font-weight:bold;font-size:12pt;" colspan="2" | Episodes
+! style="width:120px;text-align:center;"| Original Air Date
+! style="width:40px;text-align:center;" | #
+
+\{\{Episode list(.*\n)*?.*  = 
+
+\n\| Epi.*\n\| Title           = \[\[(.*\|)?
+\t
+
+\]\]\n\| OriginalAirDate = (.*)
+\t$1
+
+\n\| ShortSummary    = (.*)
+\t$1
+
+\|.*\n
+
+\}\}\n
