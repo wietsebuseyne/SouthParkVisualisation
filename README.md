@@ -1,3 +1,7 @@
+# Live visualisation
+The visualisation together with an explanation can be found on:
+http://wietsebuseyne.github.io/SouthParkVisualisation/
+
 # Used libraries
 
 * C3.js (http://c3js.org/)
